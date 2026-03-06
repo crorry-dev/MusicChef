@@ -4,7 +4,7 @@ import { startQuiz, submitAnswer } from '../api'
 
 const PREVIEW_DURATION = 30
 
-function AudioPlayer({ previewUrl, onEnded }) {
+function AudioPlayer({ previewUrl }) {
   const audioRef = useRef(null)
   const [playing, setPlaying] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -43,14 +43,12 @@ function AudioPlayer({ previewUrl, onEnded }) {
       }).catch(() => {})
     }
 
-    const handleCanPlay = () => tryPlay()
-    audio.addEventListener('canplay', handleCanPlay, { once: true })
+    audio.addEventListener('canplay', tryPlay, { once: true })
 
     const handleEnded = () => {
       setPlaying(false)
       clearInterval(intervalRef.current)
       setElapsed(PREVIEW_DURATION)
-      onEnded?.()
     }
     audio.addEventListener('ended', handleEnded)
 
@@ -58,7 +56,7 @@ function AudioPlayer({ previewUrl, onEnded }) {
       audio.removeEventListener('ended', handleEnded)
       clearInterval(intervalRef.current)
     }
-  }, [previewUrl, onEnded])
+  }, [previewUrl])
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current
@@ -109,8 +107,6 @@ function FeedbackBanner({ result }) {
   const artistCorrect = result.artist_correct
   const titleCorrect = result.title_correct
   const points = result.points ?? 0
-  const correctArtist = result.correct_artist
-  const correctTitle = result.correct_title
 
   let type = 'wrong'
   let icon = '❌'
@@ -128,9 +124,9 @@ function FeedbackBanner({ result }) {
       <div className="feedback-content">
         <div className="feedback-title">{title}</div>
         <div className="feedback-correct-answer">
-          <strong>{correctArtist}</strong>
+          <strong>{result.correct_artist}</strong>
           {' – '}
-          <strong>{correctTitle}</strong>
+          <strong>{result.correct_title}</strong>
         </div>
         <div className="points-earned" style={{ marginTop: '0.5rem' }}>
           <span className={`point-chip ${artistCorrect ? 'earned' : 'missed'}`}>
@@ -139,15 +135,7 @@ function FeedbackBanner({ result }) {
           <span className={`point-chip ${titleCorrect ? 'earned' : 'missed'}`}>
             {titleCorrect ? '+50' : '+0'} Titel
           </span>
-          {artistCorrect && titleCorrect && (
-            <span className="point-chip earned">+100 Bonus</span>
-          )}
         </div>
-        {(result.detail) && (
-          <div className="feedback-detail" style={{ marginTop: '0.4rem' }}>
-            {result.detail}
-          </div>
-        )}
       </div>
     </div>
   )
@@ -158,9 +146,11 @@ export default function QuizPage() {
   const navigate = useNavigate()
   const quizConfig = location.state
 
-  const [quizData, setQuizData] = useState(null)
-  const [currentIdx, setCurrentIdx] = useState(0)
+  const [quizId, setQuizId] = useState(null)
+  const [totalQuestions, setTotalQuestions] = useState(0)
+  const [currentQuestion, setCurrentQuestion] = useState(null)
   const [score, setScore] = useState(0)
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -172,14 +162,11 @@ export default function QuizPage() {
 
   const artistRef = useRef(null)
   const titleRef = useRef(null)
-
-  // quizConfig and navigate are stable for the lifetime of this mount —
-  // we intentionally run this only once to avoid refetching on every render.
-  const quizConfigRef = useRef(quizConfig)
+  const configRef = useRef(quizConfig)
   const navigateRef = useRef(navigate)
 
   useEffect(() => {
-    const cfg = quizConfigRef.current
+    const cfg = configRef.current
     const nav = navigateRef.current
 
     if (!cfg) {
@@ -194,17 +181,18 @@ export default function QuizPage() {
     if (cfg.playlist_id) params.playlist_id = cfg.playlist_id
 
     startQuiz(params)
-      .then((r) => setQuizData(r.data))
+      .then((r) => {
+        const data = r.data
+        setQuizId(data.quiz_id)
+        setTotalQuestions(data.total_questions)
+        setCurrentQuestion(data.question)
+      })
       .catch((e) => {
         const msg = e.response?.data?.error || 'Quiz konnte nicht geladen werden.'
         setError(msg)
       })
       .finally(() => setLoading(false))
   }, [])
-
-  const currentQuestion = quizData?.questions?.[currentIdx]
-  const totalQuestions = quizData?.questions?.length ?? 0
-  const quizId = quizData?.quiz_id
 
   const handleSubmit = useCallback(async () => {
     if (answered || submitting || !currentQuestion) return
@@ -214,12 +202,7 @@ export default function QuizPage() {
 
     setSubmitting(true)
     try {
-      const res = await submitAnswer({
-        quiz_id: quizId,
-        question_index: currentIdx,
-        artist,
-        title,
-      })
+      const res = await submitAnswer({ quiz_id: quizId, artist, title })
       const result = res.data
       setFeedbackResult(result)
       setScore((s) => s + (result.points ?? 0))
@@ -231,32 +214,36 @@ export default function QuizPage() {
     } finally {
       setSubmitting(false)
     }
-  }, [answered, submitting, currentQuestion, artistInput, titleInput, quizId, currentIdx])
+  }, [answered, submitting, currentQuestion, artistInput, titleInput, quizId])
 
   const handleNext = useCallback(() => {
-    if (currentIdx + 1 >= totalQuestions) {
+    if (!feedbackResult) return
+
+    if (feedbackResult.finished && feedbackResult.results) {
       navigate(`/results/${quizId}`, {
-        state: { quizData, finalScore: score },
+        state: { results: feedbackResult.results },
       })
       return
     }
-    setCurrentIdx((i) => i + 1)
+
+    const next = feedbackResult.next_question
+    if (next) {
+      setCurrentQuestion(next)
+    }
     setAnswered(false)
     setFeedbackResult(null)
     setArtistInput('')
     setTitleInput('')
     setRevealed(false)
     setTimeout(() => artistRef.current?.focus(), 100)
-  }, [currentIdx, totalQuestions, quizId, quizData, score, navigate])
+  }, [feedbackResult, quizId, navigate])
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
       if (e.key === 'Enter') {
         if (answered) {
           handleNext()
         } else {
-          // Only submit if focus is in an input
           const active = document.activeElement
           if (active === artistRef.current || active === titleRef.current) {
             handleSubmit()
@@ -268,12 +255,11 @@ export default function QuizPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [answered, handleNext, handleSubmit])
 
-  // Focus artist input on new question
   useEffect(() => {
-    if (!loading && !error && !answered) {
+    if (!loading && !error && !answered && currentQuestion) {
       setTimeout(() => artistRef.current?.focus(), 150)
     }
-  }, [currentIdx, loading, error, answered])
+  }, [currentQuestion, loading, error, answered])
 
   if (!quizConfig) return null
 
@@ -312,8 +298,10 @@ export default function QuizPage() {
     )
   }
 
-  const progressPct = ((currentIdx) / totalQuestions) * 100
+  const questionNumber = currentQuestion.question_number ?? (currentQuestion.index + 1)
+  const progressPct = ((questionNumber - 1) / totalQuestions) * 100
   const previewUrl = currentQuestion.preview_url
+  const albumImage = currentQuestion.image
 
   const artistInputClass = feedbackResult
     ? feedbackResult.artist_correct ? 'input input-correct' : 'input input-wrong'
@@ -325,7 +313,6 @@ export default function QuizPage() {
 
   return (
     <div className="quiz-page">
-      {/* Navbar */}
       <nav className="navbar">
         <div className="container navbar-inner">
           <Link to="/home" className="navbar-brand">
@@ -337,11 +324,10 @@ export default function QuizPage() {
       </nav>
 
       <div className="container">
-        {/* Header */}
         <div className="quiz-header">
           <div className="quiz-progress-info">
             <div className="quiz-progress-label">
-              Frage {currentIdx + 1} von {totalQuestions}
+              Frage {questionNumber} von {totalQuestions}
             </div>
             <div className="progress-bar-wrapper">
               <div className="progress-bar-fill" style={{ width: `${progressPct}%` }} />
@@ -352,15 +338,13 @@ export default function QuizPage() {
           </div>
         </div>
 
-        {/* Main layout */}
         <div className="quiz-layout">
-          {/* Left: Album art + audio */}
           <div className="album-art-panel">
             <div className="album-art-wrapper">
-              {currentQuestion.album_art ? (
+              {albumImage ? (
                 <img
                   className={`album-art-img ${revealed ? 'revealed' : 'blurred'}`}
-                  src={currentQuestion.album_art}
+                  src={albumImage}
                   alt="Album Cover"
                 />
               ) : (
@@ -380,7 +364,6 @@ export default function QuizPage() {
             )}
           </div>
 
-          {/* Right: Answer inputs + feedback */}
           <div className="answer-panel">
             <div
               style={{
@@ -445,25 +428,22 @@ export default function QuizPage() {
               </div>
             </div>
 
-            {/* Feedback */}
             {feedbackResult && (
               <FeedbackBanner result={feedbackResult} />
             )}
 
-            {/* Next button */}
             {answered && (
               <button
                 className="btn btn-primary btn-lg"
                 onClick={handleNext}
                 style={{ width: '100%' }}
               >
-                {currentIdx + 1 >= totalQuestions
+                {feedbackResult?.finished
                   ? '🏆 Ergebnis anzeigen'
                   : 'Weiter →'}
               </button>
             )}
 
-            {/* Keyboard hint */}
             {!answered && (
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
                 Drücke Enter zum Absenden

@@ -9,7 +9,10 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     getMe()
-      .then((res) => setUser(res.data))
+      .then((res) => {
+        const data = res.data
+        setUser(data.authenticated ? data.user : null)
+      })
       .catch(() => setUser(null))
       .finally(() => setIsLoading(false))
   }, [])

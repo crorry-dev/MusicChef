@@ -84,7 +84,7 @@ def fetch_tracks_for_genre(sp, genre_key, count=30):
                         'all_artists': ', '.join(a['name'] for a in track['artists']),
                         'album': track['album']['name'],
                         'preview_url': track['preview_url'],
-                        'image': track['album']['images'][0]['url'] if track['album'].get('images') and len(track['album']['images']) > 0 else None,
+                        'image': track['album']['images'][0]['url'] if track['album'].get('images') else None,
                         'spotify_url': track['external_urls'].get('spotify', ''),
                     })
         except Exception:
@@ -120,7 +120,7 @@ def fetch_tracks_for_playlist(sp, playlist_id, count=20):
                     'all_artists': ', '.join(a['name'] for a in track['artists']),
                     'album': track['album']['name'],
                     'preview_url': track['preview_url'],
-                    'image': track['album']['images'][0]['url'] if track['album'].get('images') and len(track['album']['images']) > 0 else None,
+                    'image': track['album']['images'][0]['url'] if track['album'].get('images') else None,
                     'spotify_url': track['external_urls'].get('spotify', ''),
                 })
         offset += 50
@@ -148,7 +148,7 @@ def fetch_random_tracks(sp, count=20):
                     'all_artists': ', '.join(a['name'] for a in track['artists']),
                     'album': track['album']['name'],
                     'preview_url': track['preview_url'],
-                    'image': track['album']['images'][0]['url'] if track['album'].get('images') and len(track['album']['images']) > 0 else None,
+                    'image': track['album']['images'][0]['url'] if track['album'].get('images') else None,
                     'spotify_url': track['external_urls'].get('spotify', ''),
                 })
     seen = set()

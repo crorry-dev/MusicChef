@@ -86,10 +86,10 @@ function HistoryCard({ quiz }) {
                   <div className="history-answer-num">{idx + 1}</div>
                   <div className="history-answer-info">
                     <div className="history-answer-track">
-                      {correct ? '✅ ' : '❌ '}{ans.title ?? ans.correct_title ?? '—'}
+                      {correct ? '✅ ' : '❌ '}{ans.track?.title ?? ans.title ?? '—'}
                     </div>
                     <div className="history-answer-artist">
-                      {ans.artist ?? ans.correct_artist ?? '—'}
+                      {ans.track?.artist ?? ans.artist ?? '—'}
                     </div>
                   </div>
                   <div className={`history-answer-pts ${pts === 0 ? 'zero' : ''}`}>
@@ -113,15 +113,17 @@ export default function HistoryPage() {
   const [clearing, setClearing] = useState(false)
   const [clearConfirm, setClearConfirm] = useState(false)
 
+  const clearConfirmTimerRef = React.useRef(null)
+
   const fetchHistory = useCallback(() => {
     setLoading(true)
     setError(null)
     getHistory()
       .then((r) => {
         const data = r.data
-        // Support both array and {history: [...]} shapes
+        // Backend returns {history: [...]} already reversed (most recent first)
         const list = Array.isArray(data) ? data : (data.history ?? [])
-        setHistory(list.slice().reverse())
+        setHistory(list)
       })
       .catch(() => setError('Verlauf konnte nicht geladen werden.'))
       .finally(() => setLoading(false))
@@ -131,8 +133,6 @@ export default function HistoryPage() {
     fetchHistory()
     return () => clearTimeout(clearConfirmTimerRef.current)
   }, [fetchHistory])
-
-  const clearConfirmTimerRef = React.useRef(null)
 
   const handleClear = useCallback(async () => {
     if (!clearConfirm) {

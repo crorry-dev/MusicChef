@@ -51,12 +51,12 @@ export default function HomePage() {
 
   useEffect(() => {
     getGenres()
-      .then((r) => setGenres(r.data || []))
+      .then((r) => setGenres(r.data.genres || []))
       .catch(() => setError('Genres konnten nicht geladen werden.'))
       .finally(() => setLoadingGenres(false))
 
     getUserPlaylists()
-      .then((r) => setPlaylists(r.data || []))
+      .then((r) => setPlaylists(r.data.playlists || []))
       .catch(() => {})
       .finally(() => setLoadingPlaylists(false))
   }, [])
@@ -116,10 +116,10 @@ export default function HomePage() {
       <div className="container">
         {/* Hero greeting */}
         <div className="home-hero">
-          {user?.images?.[0]?.url ? (
+          {user?.image ? (
             <img
               className="user-avatar"
-              src={user.images[0].url}
+              src={user.image}
               alt={user.display_name}
             />
           ) : (
