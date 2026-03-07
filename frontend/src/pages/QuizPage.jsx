@@ -409,6 +409,7 @@ export default function QuizPage() {
   const inputMode = quizRef.current?.inputMode ?? 'freetext'
   const hasSpeedBonus = quizRef.current?.speedBonus ?? false
   const hasRevealCover = quizRef.current?.revealCover ?? false
+  const choices = currentQuestion?.choices ?? null
 
   /* ── Progressive blur ───────────────────────────────────── */
   const blurValue = useMemo(() => {
@@ -593,7 +594,6 @@ export default function QuizPage() {
   const trackId = currentQuestion.trackId ?? null
   const previewUrl = currentQuestion.preview_url
   const albumImage = currentQuestion.image
-  const choices = currentQuestion.choices ?? null
 
   const guessFieldsList = quizRef.current?.guessFields ?? ['artist', 'title']
 
