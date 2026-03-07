@@ -1458,13 +1458,18 @@ p {
   border-radius: 999px;
   overflow: hidden;
   pointer-events: none;
+  transition: height 0.15s ease;
+}
+
+.pb-seek-wrap:hover .pb-seek-track {
+  height: 6px;
 }
 
 .pb-seek-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), #5af791);
   border-radius: 999px;
-  transition: width 0.05s linear;
+  transition: width 0.15s linear;
 }
 
 .pb-seek-input {
@@ -1480,13 +1485,24 @@ p {
   appearance: none;
 }
 
-/* Make the slider thumb grabbable even though invisible */
+.pb-seek-wrap:hover .pb-seek-input {
+  opacity: 1;
+}
+
+.pb-seek-input::-webkit-slider-runnable-track {
+  height: 6px;
+  background: transparent;
+  border-radius: 999px;
+}
+
 .pb-seek-input::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 14px;
   height: 14px;
   border-radius: 50%;
   background: var(--accent);
+  margin-top: -4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
 .pb-no-preview {

@@ -140,7 +140,10 @@ const PlayerBar = forwardRef(function PlayerBar(
     if (!seeking) {
       if (pbModeRef.current === 'sdk') {
         const s = sdkPosRef.current
-        if (!s.paused) setCurrentTime(s.ms / 1000 + (Date.now() - s.ts) / 1000)
+        const pos = s.paused
+          ? s.ms / 1000
+          : s.ms / 1000 + (Date.now() - s.ts) / 1000
+        setCurrentTime(Math.max(0, pos))
       } else if (pbModeRef.current === 'audio') {
         const a = audioRef.current
         if (a) setCurrentTime(a.currentTime)

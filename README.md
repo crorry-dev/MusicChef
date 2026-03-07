@@ -1,49 +1,59 @@
-# MusicChef 🎵
+# MusicChef 🎵🧑‍🍳
 
-Eine Spotify-basierte Music-Quiz-Web-App. Lerne Musik kennen – spielerisch und unterhaltsam!
+> Spotify-basiertes Musik-Quiz – rate Interpret, Titel und Jahr zu Songs aus 48 Genres.
+
+[![Deploy to GitHub Pages](https://github.com/crorry-dev/MusicChef/actions/workflows/deploy.yml/badge.svg)](https://github.com/crorry-dev/MusicChef/actions/workflows/deploy.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+**Live Demo:** [crorry-dev.github.io/MusicChef](https://crorry-dev.github.io/MusicChef/)
+
+---
 
 ## Features
 
-- **Spotify Login** – Authentifizierung über dein Spotify-Konto
-- **Genre-Quizzes** – Wähle aus 12 Genres (Deutschrap, Hip-Hop, Pop, Rock, R&B, Electronic, Latin, Jazz, Klassik, Metal, Indie, Schlager)
-- **Zufälliges Quiz** – Zufällige Tracks aus dem gesamten Spotify-Katalog
-- **Playlist-Quiz** – Nutze deine eigenen Spotify-Playlists als Quiz-Grundlage
-- **30s Vorschau** – Jeder Track wird als 30-sekündige Vorschau abgespielt
-- **Punktesystem** – 50 Punkte für Interpret, 50 Punkte für Titel (max. 100 pro Frage)
-- **Fuzzy-Matching** – Teilrichtige Antworten werden erkannt (Groß-/Kleinschreibung egal)
-- **Verlauf** – Vergangene Quizzes mit Score und Detailansicht
-- **Tastaturkürzel** – Enter zum Absenden / nächste Frage
+| Feature | Beschreibung |
+|---------|-------------|
+| 🎤 **48 Genres** | Von Afrobeats bis Volksmusik – alphabetisch sortiert, mit Regionfilter (Europa, Nordamerika, Lateinamerika, Afrika, Asien, International) |
+| 🎧 **Spotify Playback** | Volle Wiedergabe via Web Playback SDK (Premium) oder 30s-Preview als Fallback |
+| ✏️ **Freitext-Modus** | Antworten frei eintippen – Fuzzy-Matching erkennt auch Teiltreffer |
+| 🔘 **Multiple-Choice** | 4 Auswahlmöglichkeiten pro Feld mit intelligenten Distraktoren |
+| ⚡ **Speed-Bonus** | Schneller antworten = mehr Punkte (2×, 1.5×, 1.2×, 1×) |
+| 🖼️ **Cover Reveal** | Albumcover wird progressiv schärfer – synchron zum Song-Fortschritt |
+| 📋 **Playlist-Quiz** | Eigene Spotify-Playlists als Quiz-Grundlage nutzen |
+| 📅 **Jahresfilter** | Nur Songs aus einem bestimmten Zeitraum quizzen |
+| 🏆 **Ergebnisseite** | Detaillierte Auswertung nach jedem Quiz |
+| ⌨️ **Tastatursteuerung** | Enter zum Absenden / nächste Frage |
 
 ## Technologie
 
-| Bereich | Technologie |
-|---------|-------------|
-| Backend | Python 3.11+, Flask 3.0, Spotipy, Flask-Session, Flask-CORS |
-| Frontend | React 18, Vite 5, React Router 6, Axios |
-| Auth | Spotify OAuth 2.0 Authorization Code Flow |
+| Bereich | Stack |
+|---------|-------|
+| Frontend | React 18, Vite 5, React Router 6 |
+| Styling | Custom CSS (Dark Theme, responsive) |
+| Auth | Spotify PKCE OAuth 2.0 (rein clientseitig) |
+| Playback | Spotify Web Playback SDK + Audio Preview Fallback |
+| Quiz-Engine | Clientseitige Logik (Fuzzy-Matching, Scoring, Choice-Generation) |
+| Hosting | GitHub Pages mit SPA-Routing (404.html) |
+| CI/CD | GitHub Actions (auto-deploy bei Push auf `main`) |
+| Backend | Flask 3.0 (optional, für serverseitige Features) |
 
 ## Schnellstart
 
+### Voraussetzungen
+
+- [Node.js](https://nodejs.org/) 18+
+- Ein [Spotify-Konto](https://www.spotify.com/) (Premium empfohlen für volle Wiedergabe)
+
 ### 1. Spotify App erstellen
 
-1. Gehe zu [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+1. Gehe zum [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
 2. Erstelle eine neue App
-3. Füge `http://localhost:5000/api/auth/callback` als Redirect URI hinzu
-4. Kopiere **Client ID** und **Client Secret**
+3. Füge folgende **Redirect URIs** hinzu:
+   - `http://127.0.0.1:5173/callback` (lokale Entwicklung)
+   - `https://crorry-dev.github.io/MusicChef/callback` (GitHub Pages)
+4. Kopiere die **Client ID**
 
-### 2. Backend starten
-
-```bash
-cd backend
-cp .env.example .env
-# .env bearbeiten und Spotify-Credentials eintragen
-pip install -r requirements.txt
-python app.py
-```
-
-Das Backend läuft auf `http://localhost:5000`
-
-### 3. Frontend starten
+### 2. Frontend starten
 
 ```bash
 cd frontend
@@ -51,63 +61,128 @@ npm install
 npm run dev
 ```
 
-Das Frontend läuft auf `http://localhost:5173`
+Die App läuft auf **http://127.0.0.1:5173/**
 
-### 4. App öffnen
+Beim ersten Besuch wirst du nach deiner Spotify Client ID gefragt – einmal eingeben, wird im Browser gespeichert.
 
-Öffne `http://localhost:5173` im Browser und melde dich mit deinem Spotify-Konto an.
+### 3. Optional: Backend starten
 
-## Konfiguration (`.env`)
+Das Backend wird nur für serverseitige Features (History etc.) benötigt. Das Quiz selbst läuft komplett clientseitig.
 
-```env
-SPOTIFY_CLIENT_ID=deine_client_id
-SPOTIFY_CLIENT_SECRET=dein_client_secret
-SPOTIFY_REDIRECT_URI=http://localhost:5000/api/auth/callback
-FLASK_SECRET_KEY=ein_langer_geheimer_schluessel
-FRONTEND_URL=http://localhost:5173
-FLASK_DEBUG=false
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env        # Dann .env bearbeiten
+python app.py
 ```
 
 ## Projektstruktur
 
 ```
 MusicChef/
+├── .github/
+│   └── workflows/
+│       └── deploy.yml          # GitHub Pages CI/CD
 ├── backend/
-│   ├── app.py              # Flask App Factory
-│   ├── requirements.txt    # Python-Abhängigkeiten
-│   ├── .env.example        # Beispiel-Konfiguration
+│   ├── app.py                  # Flask App Factory
+│   ├── requirements.txt        # Python-Abhängigkeiten
+│   ├── .env.example            # Beispiel-Konfiguration
 │   └── routers/
-│       ├── auth.py         # Spotify OAuth Endpoints
-│       ├── quiz.py         # Quiz-Logik & Endpoints
-│       └── history.py      # Verlauf-Endpoints
-└── frontend/
-    ├── package.json
-    ├── vite.config.js
-    └── src/
-        ├── App.jsx
-        ├── api.js
-        ├── index.css
-        ├── context/
-        │   └── AuthContext.jsx
-        └── pages/
-            ├── LoginPage.jsx
-            ├── HomePage.jsx
-            ├── QuizPage.jsx
-            ├── ResultsPage.jsx
-            └── HistoryPage.jsx
+│       ├── auth.py             # Spotify OAuth Endpoints
+│       ├── quiz.py             # Quiz API (optional)
+│       └── history.py          # Verlauf API (optional)
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.js          # Vite-Konfiguration (base: /MusicChef/)
+│   ├── index.html
+│   ├── public/
+│   │   ├── 404.html            # SPA-Routing für GitHub Pages
+│   │   └── favicon.svg
+│   └── src/
+│       ├── App.jsx             # Router & Auth-Provider
+│       ├── main.jsx            # Entry Point
+│       ├── index.css           # Globale Styles (Dark Theme)
+│       ├── api.js              # Axios API-Client (Backend)
+│       ├── context/
+│       │   └── AuthContext.jsx  # Auth-State (Token, User)
+│       ├── lib/
+│       │   ├── spotify-pkce.js  # PKCE OAuth Flow
+│       │   ├── spotify-api.js   # Spotify Web API (Tracks, Playlists)
+│       │   ├── spotify-player.js# Web Playback SDK Wrapper
+│       │   ├── quiz-engine.js   # Quiz-Logik, Scoring, Choices
+│       │   └── genres.js        # 48 Genres mit Regionfilter
+│       └── pages/
+│           ├── SetupPage.jsx    # Client-ID Eingabe
+│           ├── LoginPage.jsx    # Spotify Login
+│           ├── CallbackPage.jsx # OAuth Callback
+│           ├── HomePage.jsx     # Genre/Playlist-Auswahl, Settings
+│           ├── QuizPage.jsx     # Quiz mit Player, Timer, Choices
+│           ├── ResultsPage.jsx  # Ergebnisauswertung
+│           └── HistoryPage.jsx  # Quiz-Verlauf
+├── .gitignore
+├── LICENSE                      # MIT
+└── README.md
 ```
 
-## API-Endpunkte
+## Quiz-Modi & Einstellungen
 
-| Methode | Endpunkt | Beschreibung |
-|---------|----------|--------------|
-| GET | `/api/auth/login` | Spotify OAuth starten |
-| GET | `/api/auth/callback` | OAuth Callback |
-| GET | `/api/auth/me` | Aktueller Nutzer |
-| POST | `/api/auth/logout` | Abmelden |
-| GET | `/api/quiz/genres` | Verfügbare Genres |
-| GET | `/api/quiz/start` | Quiz starten |
-| POST | `/api/quiz/answer` | Antwort absenden |
-| GET | `/api/quiz/playlists` | Nutzer-Playlists |
-| GET | `/api/history/` | Quiz-Verlauf |
-| DELETE | `/api/history/clear` | Verlauf löschen |
+### Eingabemodus
+- **Freitext** – Antworten frei eintippen, Fuzzy-Matching erkennt Ähnlichkeit
+- **4 Auswahlmöglichkeiten** – Multiple-Choice mit intelligenten Distraktoren
+
+### Spielmodi
+- **Speed-Bonus** – Antworte schneller für mehr Punkte:
+  - ≤ 5 Sekunden → 2× Punkte
+  - ≤ 10 Sekunden → 1.5× Punkte
+  - ≤ 20 Sekunden → 1.2× Punkte
+  - \> 20 Sekunden → 1× Punkte
+- **Cover aufdecken** – Albumcover wird synchron zum Song-Fortschritt von verpixelt zu scharf
+
+### Rate-Felder
+Frei wählbar – jede Kombination aus:
+- 🎤 Interpret
+- 🎵 Titel
+- 📅 Jahr
+
+## Architektur
+
+```
+┌─────────────────────────────────────────────┐
+│                   Browser                    │
+├──────────────┬──────────────┬───────────────┤
+│  React SPA   │  Quiz Engine │  Spotify SDK  │
+│  (UI/Router) │  (Scoring)   │  (Playback)   │
+├──────────────┴──────────────┴───────────────┤
+│              Spotify Web API                 │
+│  (Tracks, Playlists, Search, Player)         │
+├─────────────────────────────────────────────┤
+│          Spotify PKCE OAuth 2.0             │
+│  (Token im localStorage, kein Backend)       │
+└─────────────────────────────────────────────┘
+```
+
+Die gesamte Quiz-Logik läuft **clientseitig** – kein Backend nötig für das Kernfeature. Spotify PKCE OAuth ermöglicht sichere Authentifizierung ohne Server-Secret.
+
+## Deployment
+
+### GitHub Pages (automatisch)
+
+Bei jedem Push auf `main` wird automatisch via GitHub Actions deployed:
+
+1. `npm ci` → `npm run build` im `frontend/`-Ordner
+2. Build-Artefakte (`dist/`) werden auf GitHub Pages deployed
+3. SPA-Routing funktioniert via `404.html` Redirect
+
+### Manuell
+
+```bash
+cd frontend
+npm run build
+# dist/ Ordner auf beliebigen Static-Host deployen
+```
+
+## Lizenz
+
+[MIT](LICENSE) – © 2026 crorry-dev
