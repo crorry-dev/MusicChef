@@ -2,22 +2,31 @@ import { getValidToken } from './spotify-pkce'
 
 const SPOTIFY_API = 'https://api.spotify.com/v1'
 
-/* ── Request Throttle ─────────────────────────────────────────
+/* ── Request Throttle + globaler 429-Cooldown ─────────────────
    Spotify rate-limits Development-Mode-Apps auf ~3 req/s.
    Wir garantieren min. 350 ms zwischen aufeinanderfolgenden Requests.
+   Bei einem 429 wird ein globaler Cooldown gesetzt, der ALLE
+   Requests blockiert, bis die Retry-After-Zeit abgelaufen ist.
    ──────────────────────────────────────────────────────────── */
 let lastRequestTime = 0
 const MIN_GAP_MS = 350
+let globalCooldownUntil = 0
 
 async function throttle() {
+  const cooldownWait = globalCooldownUntil - Date.now()
+  if (cooldownWait > 0) {
+    await new Promise((r) => setTimeout(r, cooldownWait))
+  }
   const now = Date.now()
   const wait = MIN_GAP_MS - (now - lastRequestTime)
   if (wait > 0) await new Promise((r) => setTimeout(r, wait))
   lastRequestTime = Date.now()
 }
 
-/* ── Core Fetch mit Retry + Backoff ──────────────────────── */
-async function spotifyFetch(path, options = {}, retries = 3) {
+/* ── Core Fetch mit Retry + exponentiellem Backoff ───────── */
+const MAX_RETRIES = 3
+
+async function spotifyFetch(path, options = {}, retries = MAX_RETRIES) {
   await throttle()
 
   const token = await getValidToken()
@@ -33,7 +42,9 @@ async function spotifyFetch(path, options = {}, retries = 3) {
 
   if (res.status === 429 && retries > 0) {
     const retryAfter = parseInt(res.headers.get('Retry-After') || '4', 10)
-    const backoffMs = Math.max(retryAfter, 3) * 1000
+    const attempt = MAX_RETRIES - retries
+    const backoffMs = Math.max(retryAfter, 3) * 1000 * Math.pow(2, attempt)
+    globalCooldownUntil = Date.now() + backoffMs
     console.warn(`[Spotify] 429 – warte ${backoffMs / 1000}s (${retries} Versuche übrig)`, path)
     await new Promise((r) => setTimeout(r, backoffMs))
     return spotifyFetch(path, options, retries - 1)
@@ -51,6 +62,13 @@ async function spotifyFetch(path, options = {}, retries = 3) {
   }
 
   return res.json()
+}
+
+/* ── Current User ────────────────────────────────────────────
+   Läuft über spotifyFetch → Throttle + Retry greifen.
+   ──────────────────────────────────────────────────────────── */
+export async function fetchCurrentUser() {
+  return spotifyFetch('/me')
 }
 
 /* ── Market (Country) ────────────────────────────────────────

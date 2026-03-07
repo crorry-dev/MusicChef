@@ -7,7 +7,7 @@ import {
   clearToken,
   clearClientId,
 } from '../lib/spotify-pkce'
-import { setMarket } from '../lib/spotify-api'
+import { setMarket, fetchCurrentUser } from '../lib/spotify-api'
 
 const AuthContext = createContext(null)
 
@@ -31,11 +31,7 @@ export function AuthProvider({ children }) {
       }
 
       try {
-        const res = await fetch('https://api.spotify.com/v1/me', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!res.ok) throw new Error('Token invalid')
-        const data = await res.json()
+        const data = await fetchCurrentUser()
         if (data.country) setMarket(data.country)
         setUser({
           id: data.id,
