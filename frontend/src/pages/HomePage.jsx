@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getGenresList, getRegionsList } from '../lib/genres'
-import { fetchUserPlaylists } from '../lib/spotify-api'
+import { fetchUserPlaylists, getCachedPlaylists } from '../lib/spotify-api'
 import Navbar from '../components/Navbar'
 import GenreIcon from '../components/GenreIcon'
 import {
@@ -18,11 +18,12 @@ export default function HomePage() {
   const navigate = useNavigate()
 
   /* ── Source state ─────────────────────────────────────────── */
-  const [playlists, setPlaylists] = useState([])
+  const [playlists, setPlaylists] = useState(() => getCachedPlaylists() ?? [])
   const [selectedGenre, setSelectedGenre] = useState(null)
   const [selectedPlaylist, setSelectedPlaylist] = useState(null)
-  const [loadingPlaylists, setLoadingPlaylists] = useState(true)
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false)
   const [playlistError, setPlaylistError] = useState(null)
+  const [playlistsLoaded, setPlaylistsLoaded] = useState(false)
   const [tab, setTab] = useState('genre')
   const [regionFilter, setRegionFilter] = useState('all')
   const [genreSearch, setGenreSearch] = useState('')
@@ -53,7 +54,10 @@ export default function HomePage() {
     setLoadingPlaylists(true)
     setPlaylistError(null)
     fetchUserPlaylists()
-      .then(setPlaylists)
+      .then((data) => {
+        setPlaylists(data)
+        setPlaylistsLoaded(true)
+      })
       .catch((err) => {
         console.error('[Playlists]', err.message)
         setPlaylistError(err.message)
@@ -61,7 +65,13 @@ export default function HomePage() {
       .finally(() => setLoadingPlaylists(false))
   }, [])
 
-  useEffect(() => { loadPlaylists() }, [loadPlaylists])
+  /* Playlists erst laden wenn der Playlist-Tab aktiv wird → kein
+     Race mit dem /me-Request beim Seitenaufbau */
+  useEffect(() => {
+    if (tab === 'playlist' && !playlistsLoaded && !loadingPlaylists) {
+      loadPlaylists()
+    }
+  }, [tab, playlistsLoaded, loadingPlaylists, loadPlaylists])
 
   /* Clear genre selection when switching regions (genre might not be in new list) */
   useEffect(() => {
@@ -247,9 +257,12 @@ export default function HomePage() {
         {tab === 'playlist' && (
           <div className="playlist-grid">
             {loadingPlaylists ? (
-              <p className="text-muted" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
-                Playlists werden geladen…
-              </p>
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
+                <p className="text-muted" style={{ marginBottom: '1rem' }}>Playlists werden geladen…</p>
+                <div className="progress-bar-wrapper" style={{ maxWidth: '260px', margin: '0 auto' }}>
+                  <div className="progress-bar-fill progress-bar-indeterminate" />
+                </div>
+              </div>
             ) : playlistError ? (
               <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
                 <p className="text-muted" style={{ marginBottom: '0.75rem' }}>Playlists konnten nicht geladen werden.</p>

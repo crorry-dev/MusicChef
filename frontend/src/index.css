@@ -361,6 +361,17 @@ p {
   transition: width 0.4s ease;
 }
 
+.progress-bar-indeterminate {
+  width: 40%;
+  animation: progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  0%   { margin-left: 0;   width: 30%; }
+  50%  { margin-left: 35%; width: 40%; }
+  100% { margin-left: 70%; width: 30%; }
+}
+
 /* ============================================================
    Login Page
    ============================================================ */

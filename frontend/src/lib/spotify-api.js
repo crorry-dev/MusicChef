@@ -263,12 +263,30 @@ export async function fetchRandomTracks(count = 20, yearRange = null) {
 }
 
 /* ── User Playlists ─────────────────────────────────────────
-   1 einziger Request an /me/playlists. Kein Nachladen einzelner
-   Playlist-Details → verhindert Rate Limiting.
+   Lädt Playlists mit localStorage-Persistenz als Fallback.
+   In-Memory-Cache (5 Min) verhindert unnötige API-Calls.
+   In-Flight-Dedup verhindert Race Conditions.
    ──────────────────────────────────────────────────────────── */
 let playlistCache = { data: null, ts: 0 }
 let playlistInflight = null
-const PLAYLIST_CACHE_MS = 60_000
+const PLAYLIST_CACHE_MS = 5 * 60_000
+const PLAYLIST_LS_KEY = 'spotify_playlists_cache'
+
+function readPlaylistsFromStorage() {
+  try {
+    const raw = localStorage.getItem(PLAYLIST_LS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed.data) && parsed.data.length > 0) return parsed.data
+  } catch { /* corrupt storage */ }
+  return null
+}
+
+function writePlaylistsToStorage(data) {
+  try {
+    localStorage.setItem(PLAYLIST_LS_KEY, JSON.stringify({ data, ts: Date.now() }))
+  } catch { /* quota exceeded */ }
+}
 
 export async function fetchUserPlaylists() {
   if (playlistCache.data && Date.now() - playlistCache.ts < PLAYLIST_CACHE_MS) {
@@ -300,6 +318,7 @@ export async function fetchUserPlaylists() {
       }
 
       playlistCache = { data: all, ts: Date.now() }
+      writePlaylistsToStorage(all)
       return all
     } finally {
       playlistInflight = null
@@ -307,6 +326,13 @@ export async function fetchUserPlaylists() {
   })()
 
   return playlistInflight
+}
+
+export function getCachedPlaylists() {
+  if (playlistCache.data && Date.now() - playlistCache.ts < PLAYLIST_CACHE_MS) {
+    return playlistCache.data
+  }
+  return readPlaylistsFromStorage()
 }
 
 /* ── Discover Tracks (Tinder) ───────────────────────────────
