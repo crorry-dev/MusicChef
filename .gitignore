@@ -16,6 +16,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+!frontend/src/lib/
 parts/
 sdist/
 var/
@@ -219,3 +220,4 @@ flask_session/
 .env
 backend/.env
 backend/flask_session/
+.github/copilot-instructions.md

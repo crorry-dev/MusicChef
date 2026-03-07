@@ -698,6 +698,52 @@ p {
   color: var(--accent);
 }
 
+/* Year range filter */
+.year-range-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.year-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.year-input {
+  width: 100px;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 1rem;
+  text-align: center;
+  transition: border-color var(--transition);
+  -moz-appearance: textfield;
+}
+
+.year-input::-webkit-inner-spin-button,
+.year-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.year-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.year-dash {
+  font-size: 1.25rem;
+  color: var(--text-muted);
+  padding-top: 1.2rem;
+}
+
 .start-quiz-row {
   display: flex;
   gap: 1rem;
@@ -705,12 +751,546 @@ p {
   flex-wrap: wrap;
 }
 
+/* ── Source Tabs (Genre / Playlist Toggle) ───────────────── */
+.source-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.source-tab {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.source-tab:hover {
+  background: var(--surface2);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.source-tab.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--surface3);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.source-tab.active .tab-badge {
+  background: rgba(29, 185, 84, 0.3);
+  color: var(--accent);
+}
+
+/* ── Settings Card ──────────────────────────────────────── */
+.settings-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.25rem 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.setting-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+}
+
+/* ── Count Presets ────────────────────────────────────────── */
+.count-presets {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.count-chip {
+  padding: 0.5rem 1rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+  min-width: 3rem;
+  text-align: center;
+}
+
+.count-chip:hover {
+  border-color: var(--border-accent);
+  background: var(--surface3);
+}
+
+.count-chip.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* ── Count Slider ─────────────────────────────────────────── */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.count-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface3);
+  outline: none;
+  transition: background var(--transition);
+}
+
+.count-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 8px rgba(29, 185, 84, 0.4);
+  transition: transform var(--transition);
+}
+
+.count-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.count-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg);
+}
+
+.slider-value {
+  min-width: 2.5rem;
+  text-align: center;
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Field Toggles ────────────────────────────────────────── */
+.field-toggles {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.field-toggle {
+  padding: 0.5rem 1rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+
+.field-toggle:hover {
+  border-color: var(--border-accent);
+  background: var(--surface3);
+}
+
+.field-toggle.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* ── "Alle Tracks" Button ─────────────────────────────────── */
+.all-btn {
+  width: 100%;
+  padding: 0.55rem 1rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+  text-align: center;
+}
+
+.all-btn:hover {
+  border-color: var(--border-accent);
+}
+
+.all-btn.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* ── Sticky Start Bar ─────────────────────────────────────── */
+.start-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 50;
+  padding: 1rem 0;
+  background: linear-gradient(to top, var(--bg) 60%, transparent);
+  pointer-events: none;
+}
+
+.start-bar .btn-start {
+  pointer-events: auto;
+  width: 100%;
+  padding: 0.85rem 1.5rem;
+  font-size: 1rem;
+  border-radius: var(--radius);
+  white-space: normal;
+  text-align: center;
+  line-height: 1.35;
+}
+
+/* ── HomePage Mobile ──────────────────────────────────────── */
+@media (max-width: 480px) {
+  .home-hero {
+    padding: 1.25rem 0 1rem;
+  }
+
+  .home-greeting h2 {
+    font-size: 1.2rem;
+  }
+
+  .genre-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.5rem;
+  }
+
+  .genre-card {
+    padding: 0.8rem 0.5rem;
+  }
+
+  .genre-emoji {
+    font-size: 1.6rem;
+  }
+
+  .playlist-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .playlist-card {
+    padding: 0.75rem;
+  }
+
+  .settings-card {
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+  }
+
+  .source-tab {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.88rem;
+  }
+
+  .count-chip {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.85rem;
+  }
+
+  .field-toggle {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.82rem;
+  }
+
+  .count-slider::-webkit-slider-thumb {
+    width: 28px;
+    height: 28px;
+  }
+
+  .count-slider::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* ── Region Filter Chips ──────────────────────────────────── */
+.region-filter {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.region-chip {
+  padding: 0.35rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.region-chip:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--surface);
+}
+
+.region-chip.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* ── Quiz Loading Screen ──────────────────────────────────── */
+.quiz-loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  text-align: center;
+  background: radial-gradient(
+    ellipse at 50% 30%,
+    rgba(29, 185, 84, 0.08) 0%,
+    transparent 70%
+  ), var(--bg);
+}
+
+.quiz-loading-icon {
+  font-size: 4rem;
+  animation: float 2.5s ease-in-out infinite;
+  margin-bottom: 1.5rem;
+}
+
+.quiz-loading-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-bright);
+  margin-bottom: 1.5rem;
+}
+
+.quiz-loading-bar-wrap {
+  width: min(320px, 80vw);
+  height: 6px;
+  background: var(--surface2);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.quiz-loading-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #5af791);
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.quiz-loading-msg {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  animation: fadeInOut 2.2s ease-in-out infinite;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* ── Speed Timer Badge ────────────────────────────────────── */
+.speed-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.speed-timer.fast {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.speed-timer.medium {
+  background: var(--warning-dim);
+  color: var(--warning);
+}
+
+.speed-timer.slow {
+  background: var(--surface2);
+  color: var(--text-muted);
+}
+
+/* ── Speed Label in Feedback ──────────────────────────────── */
+.speed-label {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+
+/* ── Multiple Choice Cards ────────────────────────────────── */
+.choice-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.choice-field .input-label {
+  margin-bottom: 0.5rem;
+}
+
+.choice-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.choice-card {
+  padding: 0.75rem 0.9rem;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+  text-align: center;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+.choice-card:not(:disabled):hover {
+  border-color: var(--border-accent);
+  background: var(--surface3);
+  transform: translateY(-1px);
+}
+
+.choice-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.choice-card.correct {
+  border-color: var(--accent);
+  background: var(--success-dim);
+  color: var(--accent);
+  animation: choiceCorrect 0.4s ease;
+}
+
+.choice-card.wrong {
+  border-color: var(--error);
+  background: var(--error-dim);
+  color: var(--error);
+  animation: choiceWrong 0.4s ease;
+}
+
+.choice-card:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.choice-card:disabled:not(.correct):not(.wrong):not(.selected) {
+  opacity: 0.4;
+}
+
+@keyframes choiceCorrect {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+@keyframes choiceWrong {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+@media (max-width: 480px) {
+  .choice-options {
+    grid-template-columns: 1fr;
+  }
+
+  .choice-card {
+    padding: 0.85rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  .region-filter {
+    gap: 0.3rem;
+  }
+
+  .region-chip {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.72rem;
+  }
+
+  .speed-timer {
+    font-size: 0.78rem;
+    padding: 0.25rem 0.6rem;
+  }
+}
+
 /* ============================================================
    Quiz Page
    ============================================================ */
 .quiz-page {
   flex: 1;
-  padding-bottom: 3rem;
+  padding-bottom: 5.5rem; /* Platz für fixe Player-Bar */
 }
 
 .quiz-header {
@@ -757,7 +1337,7 @@ p {
   }
 }
 
-/* Album art panel */
+/* Album art panel – no audio player inline anymore */
 .album-art-panel {
   display: flex;
   flex-direction: column;
@@ -807,76 +1387,120 @@ p {
   font-size: 3rem;
 }
 
-/* Audio player */
-.audio-player {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem 1.2rem;
+/* ── Fixed Bottom Player Bar ──────────────────────────────── */
+.player-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 500;
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
+  padding: 0.6rem 1.25rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  height: 4.5rem;
 }
 
-.play-pause-btn {
-  width: 44px;
-  height: 44px;
+.pb-btn {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: var(--accent);
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
-  color: #000;
+  font-size: 1.1rem;
   flex-shrink: 0;
   transition: background var(--transition), transform var(--transition);
 }
 
-.play-pause-btn:hover {
-  background: var(--accent-hover);
-  transform: scale(1.05);
+.pb-play {
+  background: var(--accent);
+  color: #000;
+}
+.pb-play:hover { background: var(--accent-hover); transform: scale(1.08); }
+.pb-play:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.pb-skip {
+  background: var(--surface3);
+  color: var(--text);
+}
+.pb-skip:hover { background: var(--surface2); transform: scale(1.08); }
+
+.pb-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 2.5rem;
+  text-align: center;
+  flex-shrink: 0;
 }
 
-.play-pause-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.audio-progress {
+.pb-seek-wrap {
   flex: 1;
+  position: relative;
+  height: 20px;
+  display: flex;
+  align-items: center;
 }
 
-.audio-progress-bar {
+.pb-seek-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
   background: var(--surface3);
   border-radius: 999px;
-  height: 6px;
   overflow: hidden;
-  margin-bottom: 0.35rem;
+  pointer-events: none;
 }
 
-.audio-progress-fill {
+.pb-seek-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), #5af791);
   border-radius: 999px;
-  transition: width 0.3s linear;
+  transition: width 0.05s linear;
 }
 
-.audio-timer {
-  font-size: 0.8rem;
-  color: var(--text-muted);
+.pb-seek-input {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
-.no-preview-msg {
-  padding: 0.75rem 1rem;
-  background: var(--warning-dim);
-  border: 1px solid rgba(243, 156, 18, 0.3);
-  border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+/* Make the slider thumb grabbable even though invisible */
+.pb-seek-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.pb-no-preview {
+  font-size: 0.75rem;
   color: var(--warning);
-  text-align: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .player-bar {
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+  .pb-time { display: none; }
 }
 
 /* Answer panel */
@@ -1431,10 +2055,6 @@ p {
 
   .feature-card {
     padding: 0.9rem 0.4rem;
-  }
-
-  .genre-grid {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   }
 
   .navbar-brand .brand-text {

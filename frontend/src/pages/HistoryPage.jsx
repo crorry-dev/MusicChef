@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getHistory, clearHistory } from '../api'
+import { getQuizHistory, clearQuizHistory } from '../lib/quiz-engine'
 
 const GENRE_EMOJIS = {
   pop: '🎤', rock: '🎸', hiphop: '🎧', 'hip-hop': '🎧',
@@ -80,13 +80,17 @@ function HistoryCard({ quiz }) {
           ) : (
             answers.map((ans, idx) => {
               const pts = ans.points ?? 0
-              const correct = ans.artist_correct && ans.title_correct
+              const fr = ans.fieldResults ?? {}
+              const allCorrect = Object.keys(fr).length > 0
+                ? Object.values(fr).every((f) => f.correct)
+                : (ans.artist_correct && ans.title_correct)
               return (
                 <div className="history-answer-row" key={idx}>
                   <div className="history-answer-num">{idx + 1}</div>
                   <div className="history-answer-info">
                     <div className="history-answer-track">
-                      {correct ? '✅ ' : '❌ '}{ans.track?.title ?? ans.title ?? '—'}
+                      {allCorrect ? '✅ ' : '❌ '}{ans.track?.title ?? ans.title ?? '—'}
+                      {ans.track?.year ? ` (${ans.track.year})` : ''}
                     </div>
                     <div className="history-answer-artist">
                       {ans.track?.artist ?? ans.artist ?? '—'}
@@ -118,15 +122,14 @@ export default function HistoryPage() {
   const fetchHistory = useCallback(() => {
     setLoading(true)
     setError(null)
-    getHistory()
-      .then((r) => {
-        const data = r.data
-        // Backend returns {history: [...]} already reversed (most recent first)
-        const list = Array.isArray(data) ? data : (data.history ?? [])
-        setHistory(list)
-      })
-      .catch(() => setError('Verlauf konnte nicht geladen werden.'))
-      .finally(() => setLoading(false))
+    try {
+      const list = getQuizHistory()
+      setHistory(list.slice().reverse())
+    } catch {
+      setError('Verlauf konnte nicht geladen werden.')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => {
@@ -143,7 +146,7 @@ export default function HistoryPage() {
     clearTimeout(clearConfirmTimerRef.current)
     setClearing(true)
     try {
-      await clearHistory()
+      clearQuizHistory()
       setHistory([])
       setClearConfirm(false)
     } catch {

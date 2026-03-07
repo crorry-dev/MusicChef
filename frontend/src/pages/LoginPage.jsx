@@ -2,7 +2,7 @@ import React from 'react'
 import { useAuth } from '../context/AuthContext'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, resetSetup } = useAuth()
 
   return (
     <div className="login-page">
@@ -37,6 +37,21 @@ export default function LoginPage() {
           Wir benötigen Zugriff auf dein Spotify-Konto,<br />
           um personalisierte Quizzes zu erstellen.
         </p>
+
+        <button
+          onClick={resetSetup}
+          style={{
+            marginTop: '1rem',
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-muted)',
+            fontSize: '0.75rem',
+            cursor: 'pointer',
+            textDecoration: 'underline',
+          }}
+        >
+          Client ID ändern
+        </button>
       </div>
     </div>
   )

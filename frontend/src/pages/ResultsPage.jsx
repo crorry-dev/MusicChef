@@ -174,21 +174,40 @@ export default function ResultsPage() {
                     )}
 
                     <div className="result-track-info">
-                      <div className="result-track-title">{track.title ?? '—'}</div>
+                      <div className="result-track-title">
+                        {track.title ?? '—'}
+                        {track.year ? <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> ({track.year})</span> : null}
+                      </div>
                       <div className="result-track-artist">{track.all_artists ?? track.artist ?? '—'}</div>
                       <div className="result-guess-row">
-                        <div className="result-guess-item">
-                          <span className="result-guess-label">Interpret:</span>
-                          <span className={`result-guess-val ${artistCorrect ? 'correct' : 'wrong'}`}>
-                            {artistCorrect ? '✓' : '✗'} {ans.user_artist || '—'}
-                          </span>
-                        </div>
-                        <div className="result-guess-item">
-                          <span className="result-guess-label">Titel:</span>
-                          <span className={`result-guess-val ${titleCorrect ? 'correct' : 'wrong'}`}>
-                            {titleCorrect ? '✓' : '✗'} {ans.user_title || '—'}
-                          </span>
-                        </div>
+                        {ans.fieldResults ? (
+                          Object.entries(ans.fieldResults).map(([field, fr]) => {
+                            const labels = { artist: 'Interpret', title: 'Titel', year: 'Jahr' }
+                            return (
+                              <div className="result-guess-item" key={field}>
+                                <span className="result-guess-label">{labels[field] ?? field}:</span>
+                                <span className={`result-guess-val ${fr.correct ? 'correct' : 'wrong'}`}>
+                                  {fr.correct ? '✓' : '✗'} {fr.userValue || '—'}
+                                </span>
+                              </div>
+                            )
+                          })
+                        ) : (
+                          <>
+                            <div className="result-guess-item">
+                              <span className="result-guess-label">Interpret:</span>
+                              <span className={`result-guess-val ${artistCorrect ? 'correct' : 'wrong'}`}>
+                                {artistCorrect ? '✓' : '✗'} {ans.user_artist || '—'}
+                              </span>
+                            </div>
+                            <div className="result-guess-item">
+                              <span className="result-guess-label">Titel:</span>
+                              <span className={`result-guess-val ${titleCorrect ? 'correct' : 'wrong'}`}>
+                                {titleCorrect ? '✓' : '✗'} {ans.user_title || '—'}
+                              </span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
 
