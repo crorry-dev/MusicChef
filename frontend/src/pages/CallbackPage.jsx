@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { exchangeCode } from '../lib/spotify-pkce'
 
+const BASE = import.meta.env.BASE_URL
+
 export default function CallbackPage() {
   const navigate = useNavigate()
   const [error, setError] = useState(null)
@@ -23,7 +25,7 @@ export default function CallbackPage() {
 
     exchangeCode(code)
       .then(() => {
-        window.location.replace('/')
+        window.location.replace(BASE)
       })
       .catch((err) => {
         setError(err.message || 'Anmeldung fehlgeschlagen.')
