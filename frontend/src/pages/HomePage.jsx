@@ -1,11 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getGenresList, getRegionsList } from '../lib/genres'
 import { fetchUserPlaylists } from '../lib/spotify-api'
+import Navbar from '../components/Navbar'
+import GenreIcon from '../components/GenreIcon'
+import {
+  Mic, Music, Calendar, Edit3, Circle, Zap, Image, CheckCircle,
+  Gamepad2, Shuffle, Settings, ListMusic,
+} from '../lib/icons'
 
 /* ── Quick Presets ─────────────────────────────────────────── */
-const QUICK_COUNTS = [5, 10, 15, 20]
+const QUICK_COUNTS = [5, 10, 20, 50]
 
 export default function HomePage() {
   const { user, logout } = useAuth()
@@ -23,8 +29,8 @@ export default function HomePage() {
   const [count, setCount] = useState(10)
   const [useAllTracks, setUseAllTracks] = useState(false)
   const [guessFields, setGuessFields] = useState(['artist', 'title', 'year'])
-  const [inputMode, setInputMode] = useState('freetext')
-  const [speedBonus, setSpeedBonus] = useState(false)
+  const [inputMode, setInputMode] = useState('choice')
+  const [speedBonus, setSpeedBonus] = useState(true)
   const [revealCover, setRevealCover] = useState(true)
   const [yearEnabled, setYearEnabled] = useState(false)
   const [yearFrom, setYearFrom] = useState(2010)
@@ -59,7 +65,7 @@ export default function HomePage() {
     setSelectedPlaylist((prev) => (prev?.id === pl.id ? null : pl))
     setSelectedGenre(null)
     if (pl.tracks && pl.tracks > 0) {
-      setCount(Math.min(pl.tracks, 50))
+      setCount(Math.min(pl.tracks, 1000))
     }
   }, [])
 
@@ -74,7 +80,7 @@ export default function HomePage() {
 
   const effectiveCount = useMemo(() => {
     if (useAllTracks && selectedPlaylist?.tracks > 0) {
-      return Math.min(selectedPlaylist.tracks, 50)
+      return Math.min(selectedPlaylist.tracks, 1000)
     }
     return count
   }, [useAllTracks, selectedPlaylist, count])
@@ -123,18 +129,7 @@ export default function HomePage() {
   return (
     <div className="home-page">
       {/* ── Navbar ──────────────────────────────────────────── */}
-      <nav className="navbar">
-        <div className="container navbar-inner">
-          <Link to="/home" className="navbar-brand">
-            <span>🎵</span>
-            <span className="brand-text">MusicChef</span>
-          </Link>
-          <div className="navbar-actions">
-            <Link to="/history" className="btn btn-ghost btn-sm">📊</Link>
-            <button className="btn btn-ghost btn-sm" onClick={logout}>Abmelden</button>
-          </div>
-        </div>
-      </nav>
+      <Navbar user={user} onLogout={logout} />
 
       <div className="container home-container">
         {/* ── Hero ─────────────────────────────────────────── */}
@@ -142,7 +137,9 @@ export default function HomePage() {
           {user?.image ? (
             <img className="user-avatar" src={user.image} alt={user.display_name} />
           ) : (
-            <div className="user-avatar-placeholder">👤</div>
+            <div className="user-avatar-placeholder">
+              {user?.display_name?.[0]?.toUpperCase() || '?'}
+            </div>
           )}
           <div className="home-greeting">
             <h2>Hallo, {user?.display_name || 'Musiker'}!</h2>
@@ -156,13 +153,13 @@ export default function HomePage() {
             className={`source-tab ${tab === 'genre' ? 'active' : ''}`}
             onClick={() => setTab('genre')}
           >
-            🎸 Genres
+            <Music size={16} /> Genres
           </button>
           <button
             className={`source-tab ${tab === 'playlist' ? 'active' : ''}`}
             onClick={() => setTab('playlist')}
           >
-            🎼 Playlists
+            <ListMusic size={16} /> Playlists
             {!loadingPlaylists && playlists.length > 0 && (
               <span className="tab-badge">{playlists.length}</span>
             )}
@@ -178,7 +175,7 @@ export default function HomePage() {
                 className={`region-chip ${regionFilter === r.id ? 'active' : ''}`}
                 onClick={() => setRegionFilter(r.id)}
               >
-                {r.emoji} {r.name}
+                <GenreIcon icon={r.icon} size={14} /> {r.name}
               </button>
             ))}
           </div>
@@ -191,7 +188,7 @@ export default function HomePage() {
               className={`genre-card ${selectedGenre?.id === '__random__' ? 'selected' : ''}`}
               onClick={() => handleGenreSelect({ id: '__random__', name: 'Zufällig' })}
             >
-              <span className="genre-emoji">🎲</span>
+              <span className="genre-icon-wrap"><Shuffle size={20} /></span>
               <span className="genre-name">Zufällig</span>
             </div>
             {genres.map((g) => (
@@ -200,7 +197,7 @@ export default function HomePage() {
                 className={`genre-card ${selectedGenre?.id === g.id ? 'selected' : ''}`}
                 onClick={() => handleGenreSelect(g)}
               >
-                <span className="genre-emoji">{g.emoji}</span>
+                <span className="genre-icon-wrap"><GenreIcon icon={g.icon} size={20} /></span>
                 <span className="genre-name">{g.name}</span>
               </div>
             ))}
@@ -228,7 +225,7 @@ export default function HomePage() {
                   {pl.image ? (
                     <img className="playlist-img" src={pl.image} alt={pl.name} />
                   ) : (
-                    <div className="playlist-img-placeholder">🎵</div>
+                    <div className="playlist-img-placeholder"><Music size={24} /></div>
                   )}
                   <div className="playlist-info">
                     <div className="playlist-name">{pl.name}</div>
@@ -244,7 +241,7 @@ export default function HomePage() {
 
         {/* ── Settings Card ─────────────────────────────────── */}
         <div className="settings-card">
-          <p className="section-title">⚙️ Quiz-Einstellungen</p>
+          <p className="section-title"><Settings size={16} /> Quiz-Einstellungen</p>
 
           {/* ── Question Count ──────────────────────────────── */}
           <label className="setting-label">Anzahl Fragen</label>
@@ -256,8 +253,10 @@ export default function HomePage() {
               style={{ marginBottom: '0.6rem' }}
             >
               {useAllTracks
-                ? `✅ Alle ${Math.min(selectedPlaylist.tracks, 50)} Tracks`
-                : `Alle Tracks spielen (${Math.min(selectedPlaylist.tracks, 50)})`}
+                ? <>
+                    <CheckCircle size={14} /> Alle {Math.min(selectedPlaylist.tracks, 1000)} Tracks
+                  </>
+                : `Alle Tracks spielen (${Math.min(selectedPlaylist.tracks, 1000)})`}
             </button>
           )}
 
@@ -279,7 +278,7 @@ export default function HomePage() {
                   className="count-slider"
                   type="range"
                   min={1}
-                  max={50}
+                  max={1000}
                   value={count}
                   onChange={(e) => setCount(parseInt(e.target.value, 10))}
                 />
@@ -292,16 +291,16 @@ export default function HomePage() {
           <label className="setting-label" style={{ marginTop: '1.25rem' }}>Was erraten?</label>
           <div className="field-toggles">
             {[
-              { id: 'artist', label: '🎤 Interpret' },
-              { id: 'title', label: '🎵 Titel' },
-              { id: 'year', label: '📅 Jahr' },
+              { id: 'artist', label: 'Interpret', Icon: Mic },
+              { id: 'title', label: 'Titel', Icon: Music },
+              { id: 'year', label: 'Jahr', Icon: Calendar },
             ].map((f) => (
               <button
                 key={f.id}
                 className={`field-toggle ${guessFields.includes(f.id) ? 'selected' : ''}`}
                 onClick={() => toggleGuessField(f.id)}
               >
-                {f.label}
+                <f.Icon size={14} /> {f.label}
               </button>
             ))}
           </div>
@@ -313,13 +312,13 @@ export default function HomePage() {
               className={`field-toggle ${inputMode === 'freetext' ? 'selected' : ''}`}
               onClick={() => setInputMode('freetext')}
             >
-              ✏️ Freitext
+              <Edit3 size={14} /> Freitext
             </button>
             <button
               className={`field-toggle ${inputMode === 'choice' ? 'selected' : ''}`}
               onClick={() => setInputMode('choice')}
             >
-              🔘 4 Auswahlmöglichkeiten
+              <Circle size={14} /> 4 Auswahlmöglichkeiten
             </button>
           </div>
 
@@ -330,18 +329,18 @@ export default function HomePage() {
               className={`field-toggle ${speedBonus ? 'selected' : ''}`}
               onClick={() => setSpeedBonus((v) => !v)}
             >
-              ⚡ Speed-Bonus
+              <Zap size={14} /> Speed-Bonus
             </button>
             <button
               className={`field-toggle ${revealCover ? 'selected' : ''}`}
               onClick={() => setRevealCover((v) => !v)}
             >
-              🖼️ Cover aufdecken
+              <Image size={14} /> Cover aufdecken
             </button>
           </div>
           {speedBonus && (
             <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: '0.35rem' }}>
-              Schnellere Antworten = mehr Punkte (bis zu 2× Bonus)
+              Schnellere Antworten = mehr Punkte (bis zu 2x Bonus)
             </p>
           )}
           {revealCover && (
@@ -357,7 +356,9 @@ export default function HomePage() {
             onClick={() => setYearEnabled((v) => !v)}
             style={{ marginBottom: yearEnabled ? '0.6rem' : 0 }}
           >
-            {yearEnabled ? '✅ Zeitfilter aktiv' : '📅 Zeitfilter'}
+            {yearEnabled
+              ? <><CheckCircle size={14} /> Zeitfilter aktiv</>
+              : <><Calendar size={14} /> Zeitfilter</>}
           </button>
 
           {yearEnabled && (
@@ -396,7 +397,7 @@ export default function HomePage() {
 
           {yearEnabled && selectedPlaylist && (
             <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>
-              ℹ️ Zeitfilter wirkt nur bei Genre- und Zufalls-Modus.
+              Zeitfilter wirkt nur bei Genre- und Zufalls-Modus.
             </p>
           )}
         </div>
@@ -408,9 +409,10 @@ export default function HomePage() {
             disabled={!canStart}
             onClick={handleStartQuiz}
           >
+            <Gamepad2 size={18} />
             {canStart
-              ? `🎮 Quiz starten – ${selectionLabel} (${effectiveCount} Fragen)`
-              : '🎮 Wähle ein Genre oder eine Playlist'}
+              ? ` Quiz starten – ${selectionLabel} (${effectiveCount} Fragen)`
+              : ' Wähle ein Genre oder eine Playlist'}
           </button>
         </div>
       </div>

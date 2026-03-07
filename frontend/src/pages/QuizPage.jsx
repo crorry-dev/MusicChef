@@ -13,19 +13,25 @@ import {
   onStateChange as sdkOnStateChange,
   disconnect as sdkDisconnect,
 } from '../lib/spotify-player'
+import Navbar from '../components/Navbar'
+import GenreIcon from '../components/GenreIcon'
+import {
+  MusicNote, Music, Mic, Calendar, Timer, Star, Lock, Check, XCircle,
+  CheckCircle, Trophy, AlertTriangle, Play, Pause, SkipForward, X,
+} from '../lib/icons'
 
 const PREVIEW_DURATION = 30
 
 /* ── Loading messages ─────────────────────────────────────── */
 const LOADING_MSGS = [
-  '🎵 Mische die Tracks…',
-  '🎤 Suche Interpreten…',
-  '🎧 Lade Vorschauen…',
-  '🎶 Stelle Fragen zusammen…',
-  '🎸 Fast fertig…',
-  '🎯 Bereite Auswahlmöglichkeiten vor…',
-  '🔊 Verbinde Spotify Player…',
-  '🎵 Gleich gehts los…',
+  'Mische die Tracks…',
+  'Suche Interpreten…',
+  'Lade Vorschauen…',
+  'Stelle Fragen zusammen…',
+  'Fast fertig…',
+  'Bereite Auswahlmöglichkeiten vor…',
+  'Verbinde Spotify Player…',
+  'Gleich gehts los…',
 ]
 
 /* ═══════════════════════════════════════════════════════════
@@ -47,7 +53,7 @@ function QuizLoadingScreen() {
 
   return (
     <div className="quiz-loading-screen">
-      <div className="quiz-loading-icon">🎵</div>
+      <div className="quiz-loading-icon"><MusicNote size={40} /></div>
       <h2 className="quiz-loading-title">Quiz wird erstellt</h2>
       <div className="quiz-loading-bar-wrap">
         <div className="quiz-loading-bar-fill" style={{ width: `${progress}%` }} />
@@ -212,7 +218,7 @@ const PlayerBar = forwardRef(function PlayerBar(
     <div className="player-bar">
       <audio ref={audioRef} preload="auto" style={{ display: 'none' }} />
       <button className="pb-btn pb-play" onClick={togglePlay} disabled={!pbMode} aria-label={playing ? 'Pause' : 'Abspielen'}>
-        {playing ? '⏸' : '▶'}
+        {playing ? <Pause size={18} /> : <Play size={18} />}
       </button>
       <span className="pb-time">{fmt(currentTime)}</span>
       <div className="pb-seek-wrap">
@@ -222,7 +228,7 @@ const PlayerBar = forwardRef(function PlayerBar(
           disabled={!pbMode} aria-label="Seek" />
       </div>
       <span className="pb-time">{fmt(duration)}</span>
-      {canSkip && <button className="pb-btn pb-skip" onClick={onSkip} aria-label="Überspringen">⏭</button>}
+      {canSkip && <button className="pb-btn pb-skip" onClick={onSkip} aria-label="Überspringen"><SkipForward size={18} /></button>}
       {!pbMode && !previewUrl && <span className="pb-no-preview">Keine Vorschau</span>}
     </div>
   )
@@ -236,9 +242,10 @@ function FeedbackBanner({ result, guessFields }) {
   const allCorrect = Object.values(fr).every((f) => f.correct)
   const someCorrect = Object.values(fr).some((f) => f.correct)
 
-  let type = 'wrong', icon = '❌', title = 'Leider falsch!'
-  if (allCorrect) { type = 'correct'; icon = '✅'; title = 'Perfekt!' }
-  else if (someCorrect) { type = 'partial'; icon = '🟡'; title = 'Fast richtig!' }
+  let type = 'wrong', title = 'Leider falsch!'
+  if (allCorrect) { type = 'correct'; title = 'Perfekt!' }
+  else if (someCorrect) { type = 'partial'; title = 'Fast richtig!' }
+  const fbIcon = type === 'correct' ? <CheckCircle size={24} /> : type === 'partial' ? <AlertTriangle size={24} /> : <XCircle size={24} />
 
   const ppf = Math.round(100 / (guessFields?.length || 2))
   const correctParts = []
@@ -248,7 +255,7 @@ function FeedbackBanner({ result, guessFields }) {
 
   return (
     <div className={`feedback-banner ${type}`}>
-      <span className="feedback-icon">{icon}</span>
+      <span className="feedback-icon">{fbIcon}</span>
       <div className="feedback-content">
         <div className="feedback-title">{title}</div>
         {result.speedLabel && (
@@ -275,11 +282,16 @@ function FeedbackBanner({ result, guessFields }) {
    Multiple Choice Panel
    ═══════════════════════════════════════════════════════════ */
 function ChoiceField({ field, options, selectedValue, onSelect, correctValue, answered, fieldResult, showKeys }) {
-  const cfg = { artist: '🎤 Interpret', title: '🎵 Titel', year: '📅 Jahr' }
+  const cfgMap = {
+    artist: { label: 'Interpret', Icon: Mic },
+    title: { label: 'Titel', Icon: Music },
+    year: { label: 'Jahr', Icon: Calendar },
+  }
+  const cfg = cfgMap[field] ?? { label: field, Icon: Music }
 
   return (
     <div className="choice-field">
-      <div className="input-label">{cfg[field] ?? field}</div>
+      <div className="input-label"><cfg.Icon size={14} /> {cfg.label}</div>
       <div className="choice-options">
         {options.map((opt, idx) => {
           const isSelected = selectedValue === opt
@@ -574,8 +586,8 @@ export default function QuizPage() {
   if (error) {
     return (
       <div className="container" style={{ paddingTop: '3rem', textAlign: 'center' }}>
-        <div className="error-box" style={{ justifyContent: 'center', marginBottom: '1.5rem' }}>⚠️ {error}</div>
-        <Link to="/home" className="btn btn-secondary">← Zurück</Link>
+        <div className="error-box" style={{ justifyContent: 'center', marginBottom: '1.5rem' }}><AlertTriangle size={16} /> {error}</div>
+        <Link to="/home" className="btn btn-secondary">Zurück</Link>
       </div>
     )
   }
@@ -584,7 +596,7 @@ export default function QuizPage() {
     return (
       <div className="container" style={{ paddingTop: '3rem', textAlign: 'center' }}>
         <p className="text-muted">Keine Fragen verfügbar.</p>
-        <Link to="/home" className="btn btn-secondary" style={{ marginTop: '1rem' }}>← Zurück</Link>
+        <Link to="/home" className="btn btn-secondary" style={{ marginTop: '1rem' }}>Zurück</Link>
       </div>
     )
   }
@@ -603,27 +615,28 @@ export default function QuizPage() {
   }
 
   const fieldConfig = {
-    artist: { label: '🎤 Interpret', placeholder: 'z.B. Taylor Swift', type: 'text' },
-    title: { label: '🎵 Titel', placeholder: 'z.B. Shake It Off', type: 'text' },
-    year: { label: '📅 Jahr', placeholder: 'z.B. 2014', type: 'text', inputMode: 'numeric' },
+    artist: { label: 'Interpret', placeholder: 'z.B. Taylor Swift', type: 'text', Icon: Mic },
+    title: { label: 'Titel', placeholder: 'z.B. Shake It Off', type: 'text', Icon: Music },
+    year: { label: 'Jahr', placeholder: 'z.B. 2014', type: 'text', inputMode: 'numeric', Icon: Calendar },
   }
 
   const currentTrack = quizRef.current?.tracks?.[currentQuestion.index]
 
   return (
     <div className="quiz-page">
-      <nav className="navbar">
-        <div className="container navbar-inner">
-          <Link to="/home" className="navbar-brand">
-            <span>🎵</span><span className="brand-text">MusicChef</span>
+      <nav className="sp-navbar">
+        <div className="sp-navbar-inner">
+          <Link to="/home" className="sp-nav-brand">
+            <div className="sp-nav-logo"><MusicNote size={20} /></div>
+            <span className="sp-nav-title">MusicChef</span>
           </Link>
-          <div className="navbar-actions">
+          <div className="sp-navbar-right">
             {hasSpeedBonus && !answered && (
               <div className={`speed-timer ${elapsed <= 5 ? 'fast' : elapsed <= 10 ? 'medium' : 'slow'}`}>
-                ⏱ {elapsed}s
+                <Timer size={14} /> {elapsed}s
               </div>
             )}
-            <Link to="/home" className="btn btn-ghost btn-sm">✕ Beenden</Link>
+            <Link to="/home" className="btn btn-ghost btn-sm"><X size={16} /> Beenden</Link>
           </div>
         </div>
       </nav>
@@ -636,7 +649,7 @@ export default function QuizPage() {
               <div className="progress-bar-fill" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
-          <div className="quiz-score-badge">⭐ {score} Pkt.</div>
+          <div className="quiz-score-badge"><Star size={16} /> {score} Pkt.</div>
         </div>
 
         <div className="quiz-layout">
@@ -654,10 +667,10 @@ export default function QuizPage() {
                   }}
                 />
               ) : (
-                <div className="album-art-placeholder">🎵</div>
+                <div className="album-art-placeholder"><Music size={40} /></div>
               )}
               {!revealed && blurValue > 10 && (
-                <div className="album-art-overlay">🔒</div>
+                <div className="album-art-overlay"><Lock size={32} /></div>
               )}
             </div>
           </div>
@@ -709,7 +722,7 @@ export default function QuizPage() {
                     if (!cfg) return null
                     return (
                       <div className="input-group" key={field}>
-                        <label className="input-label">{cfg.label}</label>
+                        <label className="input-label"><cfg.Icon size={14} /> {cfg.label}</label>
                         <input
                           ref={idx === 0 ? firstInputRef : undefined}
                           className={getInputClass(field)}
@@ -733,7 +746,7 @@ export default function QuizPage() {
                       disabled={submitting || !Object.values(fieldInputs).some((v) => v?.trim())}
                       style={{ marginTop: '0.25rem' }}
                     >
-                      {submitting ? <><span className="spinner spinner-sm" /> Wird überprüft…</> : '✔ Antwort abschicken'}
+                      {submitting ? <><span className="spinner spinner-sm" /> Wird überprüft…</> : <><Check size={16} /> Antwort abschicken</>}
                     </button>
                   )}
                 </div>
@@ -744,7 +757,7 @@ export default function QuizPage() {
 
             {answered && (
               <button className="btn btn-primary btn-lg" onClick={handleNext} style={{ width: '100%' }}>
-                {feedbackResult?.finished ? '🏆 Ergebnis anzeigen' : 'Weiter →'}
+                {feedbackResult?.finished ? <><Trophy size={18} /> Ergebnis anzeigen</> : 'Weiter →'}
               </button>
             )}
 

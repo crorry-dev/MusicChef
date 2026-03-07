@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { Settings, Info, AlertTriangle } from '../lib/icons'
 
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false)
@@ -132,7 +133,7 @@ export default function SetupPage() {
   return (
     <div className="login-page">
       <div className="login-box" style={{ maxWidth: '560px' }}>
-        <div className="login-logo">⚙️</div>
+        <div className="login-logo"><Settings size={40} /></div>
         <h1 className="login-title gradient-text">Setup</h1>
         <p className="login-tagline">
           Einmalige Einrichtung – dauert nur 2 Minuten
@@ -197,7 +198,7 @@ export default function SetupPage() {
                 color: 'var(--accent)',
               }}
             >
-              💡 MusicChef wird als <strong>GitHub Pages</strong> Seite unter{' '}
+              <Info size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> MusicChef wird als <strong>GitHub Pages</strong> Seite unter{' '}
               <strong>crorry-dev.github.io/MusicChef</strong> gehostet –
               deshalb ist die erste URL die wichtigste.
             </div>
@@ -224,7 +225,7 @@ export default function SetupPage() {
                 color: 'var(--warning)',
               }}
             >
-              ⚠️ Du brauchst <strong>nur die Client ID</strong> – kein Client
+              <AlertTriangle size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Du brauchst <strong>nur die Client ID</strong> – kein Client
               Secret nötig!
             </div>
           </StepCard>
@@ -232,7 +233,7 @@ export default function SetupPage() {
 
         {error && (
           <div className="error-box" style={{ marginBottom: '1rem' }}>
-            ⚠️ {error}
+                        <AlertTriangle size={14} /> {error}
           </div>
         )}
 

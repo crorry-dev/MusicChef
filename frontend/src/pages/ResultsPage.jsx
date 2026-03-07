@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams, useLocation, Link } from 'react-router-dom'
+import Navbar from '../components/Navbar'
+import {
+  MusicNote, Music, Trophy, Star, BookOpen, RefreshCw, BarChart,
+  Check, X as XIcon,
+} from '../lib/icons'
 
 const CONFETTI_COLORS = ['#1DB954', '#5af791', '#ff6b9d', '#ffd93d', '#6bceff', '#ffffff']
 
@@ -60,10 +65,10 @@ function ScoreRing({ percentage }) {
 }
 
 function getRating(pct) {
-  if (pct >= 80) return { emoji: '🏆', label: 'Ausgezeichnet!' }
-  if (pct >= 60) return { emoji: '⭐', label: 'Gut gemacht!' }
-  if (pct >= 40) return { emoji: '📚', label: 'Weiter üben!' }
-  return { emoji: '🎵', label: 'Nicht aufgeben!' }
+  if (pct >= 80) return { icon: <Trophy size={32} />, label: 'Ausgezeichnet!' }
+  if (pct >= 60) return { icon: <Star size={32} />, label: 'Gut gemacht!' }
+  if (pct >= 40) return { icon: <BookOpen size={32} />, label: 'Weiter üben!' }
+  return { icon: <Music size={32} />, label: 'Nicht aufgeben!' }
 }
 
 export default function ResultsPage() {
@@ -114,18 +119,18 @@ export default function ResultsPage() {
     <div className="results-page">
       <Confetti show={showConfetti} />
 
-      <nav className="navbar">
-        <div className="container navbar-inner">
-          <Link to="/home" className="navbar-brand">
-            <span>🎵</span>
-            <span className="brand-text">MusicChef</span>
+      <nav className="sp-navbar">
+        <div className="sp-navbar-inner">
+          <Link to="/home" className="sp-nav-brand">
+            <div className="sp-nav-logo"><MusicNote size={20} /></div>
+            <span className="sp-nav-title">MusicChef</span>
           </Link>
         </div>
       </nav>
 
       <div className="container">
         <div className="results-header">
-          <div className="results-trophy">{rating.emoji}</div>
+          <div className="results-trophy">{rating.icon}</div>
           <h1>{rating.label}</h1>
 
           <ScoreRing percentage={ringPct} />
@@ -144,10 +149,10 @@ export default function ResultsPage() {
 
         <div className="results-actions">
           <button className="btn btn-primary btn-lg" onClick={() => navigate('/home')}>
-            🔄 Nochmal spielen
+            <RefreshCw size={16} /> Nochmal spielen
           </button>
           <Link to="/history" className="btn btn-secondary btn-lg">
-            📊 Verlauf ansehen
+            <BarChart size={16} /> Verlauf ansehen
           </Link>
         </div>
 
@@ -170,7 +175,7 @@ export default function ResultsPage() {
                     {track.image ? (
                       <img className="result-thumb" src={track.image} alt="Cover" />
                     ) : (
-                      <div className="result-thumb-placeholder">🎵</div>
+                      <div className="result-thumb-placeholder"><Music size={20} /></div>
                     )}
 
                     <div className="result-track-info">
@@ -187,7 +192,7 @@ export default function ResultsPage() {
                               <div className="result-guess-item" key={field}>
                                 <span className="result-guess-label">{labels[field] ?? field}:</span>
                                 <span className={`result-guess-val ${fr.correct ? 'correct' : 'wrong'}`}>
-                                  {fr.correct ? '✓' : '✗'} {fr.userValue || '—'}
+                                  {fr.correct ? <Check size={12} /> : <XIcon size={12} />} {fr.userValue || '—'}
                                 </span>
                               </div>
                             )
@@ -197,13 +202,13 @@ export default function ResultsPage() {
                             <div className="result-guess-item">
                               <span className="result-guess-label">Interpret:</span>
                               <span className={`result-guess-val ${artistCorrect ? 'correct' : 'wrong'}`}>
-                                {artistCorrect ? '✓' : '✗'} {ans.user_artist || '—'}
+                                {artistCorrect ? <Check size={12} /> : <XIcon size={12} />} {ans.user_artist || '—'}
                               </span>
                             </div>
                             <div className="result-guess-item">
                               <span className="result-guess-label">Titel:</span>
                               <span className={`result-guess-val ${titleCorrect ? 'correct' : 'wrong'}`}>
-                                {titleCorrect ? '✓' : '✗'} {ans.user_title || '—'}
+                                {titleCorrect ? <Check size={12} /> : <XIcon size={12} />} {ans.user_title || '—'}
                               </span>
                             </div>
                           </>

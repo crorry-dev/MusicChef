@@ -1,22 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getQuizHistory, clearQuizHistory } from '../lib/quiz-engine'
+import Navbar from '../components/Navbar'
+import { useAuth } from '../context/AuthContext'
+import {
+  Music, MusicNote, BarChart, Gamepad2, Trash2, AlertTriangle,
+  ArrowLeft, ChevronDown, CheckCircle, XCircle,
+} from '../lib/icons'
+import GenreIcon from '../components/GenreIcon'
+import { GENRES } from '../lib/genres'
 
-const GENRE_EMOJIS = {
-  pop: '🎤', rock: '🎸', hiphop: '🎧', 'hip-hop': '🎧',
-  jazz: '🎷', classical: '🎻', electronic: '🎛️',
-  rnb: '🎶', 'r&b': '🎶', metal: '🤘', country: '🤠',
-  latin: '💃', reggae: '🌴', blues: '🎺', soul: '✨',
-  punk: '⚡', folk: '🪕', indie: '🌿', dance: '🕺',
-  random: '🎲', playlist: '🎼', default: '🎵',
-}
-
-function getGenreEmoji(name = '') {
-  const key = name.toLowerCase().replace(/\s+/g, '')
-  for (const [k, v] of Object.entries(GENRE_EMOJIS)) {
-    if (key.includes(k)) return v
-  }
-  return GENRE_EMOJIS.default
+function getGenreIcon(name = '') {
+  const key = name.toLowerCase().replace(/[\s-]+/g, '')
+  if (key === 'random') return 'shuffle'
+  if (key === 'playlist') return 'music'
+  const match = Object.entries(GENRES).find(([id]) => key.includes(id))
+  return match ? match[1].icon : 'music'
 }
 
 function formatDate(dateStr) {
@@ -49,7 +48,7 @@ function HistoryCard({ quiz }) {
         role="button"
         aria-expanded={expanded}
       >
-        <div className="history-card-icon">{getGenreEmoji(genre)}</div>
+        <div className="history-card-icon"><GenreIcon icon={getGenreIcon(genre)} size={22} /></div>
         <div className="history-card-meta">
           <div className="history-card-genre">
             {genre.charAt(0).toUpperCase() + genre.slice(1)}
@@ -68,7 +67,7 @@ function HistoryCard({ quiz }) {
             {percentage}%
           </div>
         </div>
-        <div className={`history-expand-icon ${expanded ? 'open' : ''}`}>▼</div>
+        <div className={`history-expand-icon ${expanded ? 'open' : ''}`}><ChevronDown size={16} /></div>
       </div>
 
       {expanded && (
@@ -89,7 +88,7 @@ function HistoryCard({ quiz }) {
                   <div className="history-answer-num">{idx + 1}</div>
                   <div className="history-answer-info">
                     <div className="history-answer-track">
-                      {allCorrect ? '✅ ' : '❌ '}{ans.track?.title ?? ans.title ?? '—'}
+                      {allCorrect ? <CheckCircle size={14} /> : <XCircle size={14} />}{' '}{ans.track?.title ?? ans.title ?? '—'}
                       {ans.track?.year ? ` (${ans.track.year})` : ''}
                     </div>
                     <div className="history-answer-artist">
@@ -159,11 +158,11 @@ export default function HistoryPage() {
   return (
     <div className="history-page">
       {/* Navbar */}
-      <nav className="navbar">
-        <div className="container navbar-inner">
-          <Link to="/home" className="navbar-brand">
-            <span>🎵</span>
-            <span className="brand-text">MusicChef</span>
+      <nav className="sp-navbar">
+        <div className="sp-navbar-inner">
+          <Link to="/home" className="sp-nav-brand">
+            <div className="sp-nav-logo"><MusicNote size={20} /></div>
+            <span className="sp-nav-title">MusicChef</span>
           </Link>
         </div>
       </nav>
@@ -171,7 +170,7 @@ export default function HistoryPage() {
       <div className="container">
         <div className="history-header">
           <div>
-            <h2>📊 Spielverlauf</h2>
+            <h2><BarChart size={20} /> Spielverlauf</h2>
             <p className="text-muted" style={{ fontSize: '0.9rem', marginTop: '0.2rem' }}>
               {loading ? '' : `${history.length} Quiz${history.length !== 1 ? 'zes' : ''} gespielt`}
             </p>
@@ -181,7 +180,7 @@ export default function HistoryPage() {
               className="btn btn-secondary btn-sm"
               onClick={() => navigate('/home')}
             >
-              ← Zurück
+                            <ArrowLeft size={14} /> Zurück
             </button>
             {history.length > 0 && (
               <button
@@ -192,8 +191,8 @@ export default function HistoryPage() {
                 {clearing
                   ? 'Wird gelöscht…'
                   : clearConfirm
-                  ? '⚠️ Wirklich löschen?'
-                  : '🗑️ Verlauf löschen'}
+                  ? <><AlertTriangle size={14} /> Wirklich löschen?</>
+                  : <><Trash2 size={14} /> Verlauf löschen</>}
               </button>
             )}
           </div>
@@ -201,7 +200,7 @@ export default function HistoryPage() {
 
         {error && (
           <div className="error-box" style={{ marginBottom: '1.5rem' }}>
-            ⚠️ {error}
+                        <AlertTriangle size={14} /> {error}
           </div>
         )}
 
@@ -211,7 +210,7 @@ export default function HistoryPage() {
           </div>
         ) : history.length === 0 ? (
           <div className="history-empty">
-            <div className="history-empty-icon">🎵</div>
+            <div className="history-empty-icon"><Music size={40} /></div>
             <h3>Noch keine Quizzes gespielt</h3>
             <p style={{ marginTop: '0.5rem', marginBottom: '1.5rem' }}>
               Starte dein erstes Quiz und entdecke neue Musik!
@@ -220,7 +219,7 @@ export default function HistoryPage() {
               className="btn btn-primary"
               onClick={() => navigate('/home')}
             >
-              🎮 Jetzt spielen
+                            <Gamepad2 size={16} /> Jetzt spielen
             </button>
           </div>
         ) : (

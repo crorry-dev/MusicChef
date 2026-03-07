@@ -55,9 +55,9 @@ export function checkYear(userYear, correctYear) {
    Constants
    ═══════════════════════════════════════════════════════════ */
 export const GUESS_FIELDS = {
-  artist: { label: 'Interpret', emoji: '🎤' },
-  title: { label: 'Titel', emoji: '🎵' },
-  year: { label: 'Jahr', emoji: '📅' },
+  artist: { label: 'Interpret', icon: 'mic' },
+  title: { label: 'Titel', icon: 'music' },
+  year: { label: 'Jahr', icon: 'calendar' },
 }
 
 export const DEFAULT_GUESS_FIELDS = ['artist', 'title', 'year']
@@ -174,7 +174,7 @@ export async function createQuiz({
     Array.isArray(guessFields) && guessFields.length > 0
       ? guessFields
       : DEFAULT_GUESS_FIELDS
-  const targetCount = Math.min(count, 50)
+  const targetCount = Math.min(count, 1000)
   let tracks
 
   if (mode === 'playlist' && playlistId) {
