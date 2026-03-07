@@ -67,7 +67,7 @@ function QuizLoadingScreen() {
    Bottom Player Bar – Spotify SDK + Audio Preview Fallback
    ═══════════════════════════════════════════════════════════ */
 const PlayerBar = forwardRef(function PlayerBar(
-  { trackId, previewUrl, sdkReady, onSkip, canSkip, onTrackEnd },
+  { trackId, previewUrl, sdkReady, sdkError, onSkip, canSkip, onTrackEnd },
   ref,
 ) {
   const audioRef = useRef(null)
@@ -76,6 +76,7 @@ const PlayerBar = forwardRef(function PlayerBar(
   const autoPlayedRef = useRef(false)
   const sdkPosRef = useRef({ ms: 0, ts: Date.now(), paused: true })
   const durRef = useRef(PREVIEW_DURATION)
+  const trackStartedRef = useRef(false)
   const onTrackEndRef = useRef(onTrackEnd)
   onTrackEndRef.current = onTrackEnd
 
@@ -131,10 +132,12 @@ const PlayerBar = forwardRef(function PlayerBar(
       if (!state || pbModeRef.current !== 'sdk') return
       const t = state.track_window?.current_track
       if (t) { const d = t.duration_ms / 1000; durRef.current = d; setDuration(d) }
+      if (state.position > 0) trackStartedRef.current = true
       sdkPosRef.current = { ms: state.position, ts: Date.now(), paused: state.paused }
       setPlaying(!state.paused)
-      /* Track ended: paused + position near end */
-      if (state.paused && t && state.position === 0 && !state.loading) {
+      /* Track ended: nur auslösen wenn Track tatsächlich gespielt hat */
+      if (trackStartedRef.current && state.paused && t && state.position === 0 && !state.loading) {
+        trackStartedRef.current = false
         onTrackEndRef.current?.()
       }
     })
@@ -180,7 +183,7 @@ const PlayerBar = forwardRef(function PlayerBar(
   /* Track change → start playback */
   useEffect(() => {
     const a = audioRef.current
-    setPlaying(false); setCurrentTime(0); durRef.current = PREVIEW_DURATION; setDuration(PREVIEW_DURATION); autoPlayedRef.current = false
+    setPlaying(false); setCurrentTime(0); durRef.current = PREVIEW_DURATION; setDuration(PREVIEW_DURATION); autoPlayedRef.current = false; trackStartedRef.current = false
     if (a) { a.pause(); a.removeAttribute('src') }
     setMode(null)
     if (!trackId && !previewUrl) return
@@ -229,7 +232,15 @@ const PlayerBar = forwardRef(function PlayerBar(
       </div>
       <span className="pb-time">{fmt(duration)}</span>
       {canSkip && <button className="pb-btn pb-skip" onClick={onSkip} aria-label="Überspringen"><SkipForward size={18} /></button>}
-      {!pbMode && !previewUrl && <span className="pb-no-preview">Keine Vorschau</span>}
+      {!pbMode && !sdkReady && !sdkError && trackId && (
+        <span className="pb-connecting"><span className="spinner spinner-sm" /> Verbinde…</span>
+      )}
+      {!pbMode && sdkError && !previewUrl && (
+        <span className="pb-no-preview">Premium nötig für Wiedergabe</span>
+      )}
+      {!pbMode && !sdkError && sdkReady && !previewUrl && (
+        <span className="pb-no-preview">Keine Vorschau verfügbar</span>
+      )}
     </div>
   )
 })
@@ -359,12 +370,16 @@ export default function QuizPage() {
 
   /* Spotify SDK */
   const [sdkReady, setSdkReady] = useState(false)
+  const [sdkError, setSdkError] = useState(null)
 
   useEffect(() => {
     let cancelled = false
     initSdk()
       .then(() => { if (!cancelled) setSdkReady(true) })
-      .catch((err) => console.warn('[Quiz] SDK:', err.message))
+      .catch((err) => {
+        console.warn('[Quiz] SDK:', err.message)
+        if (!cancelled) setSdkError(err.message)
+      })
     return () => { cancelled = true; sdkDisconnect() }
   }, [])
 
@@ -492,20 +507,9 @@ export default function QuizPage() {
     setFieldInputs((prev) => ({ ...prev, [field]: value }))
   }, [])
 
-  /* ── Track ended → auto-submit + auto-next ──────────────── */
-  const autoNextTimer = useRef(null)
-
+  /* ── Track ended → auto-submit ──────────────────────────── */
   const handleTrackEnd = useCallback(() => {
-    if (answered || submitting) {
-      /* Already answered → auto-advance after short delay */
-      if (feedbackResult && !autoNextTimer.current) {
-        autoNextTimer.current = setTimeout(() => {
-          autoNextTimer.current = null
-          handleNext()
-        }, 2500)
-      }
-      return
-    }
+    if (answered || submitting) return
     /* Not yet answered → auto-submit current answers (or skip if empty) */
     if (!quizRef.current) return
     const hasInput = Object.values(fieldInputs).some((v) => v?.trim())
@@ -514,17 +518,9 @@ export default function QuizPage() {
     } else {
       handleSkip()
     }
-  }, [answered, submitting, feedbackResult, fieldInputs, handleSubmit, handleSkip, handleNext])
+  }, [answered, submitting, fieldInputs, handleSubmit, handleSkip])
 
-  /* Auto-next after answering when feedback is shown */
-  useEffect(() => {
-    if (!answered || !feedbackResult) return
-    autoNextTimer.current = setTimeout(() => {
-      autoNextTimer.current = null
-      handleNext()
-    }, 3000)
-    return () => { clearTimeout(autoNextTimer.current); autoNextTimer.current = null }
-  }, [answered, feedbackResult, handleNext])
+  /* Song weiterspielen nach Antwort – erst bei Track-Ende auto-advance (handleTrackEnd) */
 
   /* ── Keyboard ───────────────────────────────────────────── */
   useEffect(() => {
@@ -541,7 +537,7 @@ export default function QuizPage() {
 
       /* Enter → Submit or Next */
       if (e.key === 'Enter') {
-        if (answered) { clearTimeout(autoNextTimer.current); autoNextTimer.current = null; handleNext() }
+        if (answered) handleNext()
         else if (isTyping) handleSubmit()
         return
       }
@@ -785,6 +781,7 @@ export default function QuizPage() {
         trackId={trackId}
         previewUrl={previewUrl}
         sdkReady={sdkReady}
+        sdkError={sdkError}
         onSkip={handleSkip}
         canSkip={!answered && !submitting}
         onTrackEnd={handleTrackEnd}

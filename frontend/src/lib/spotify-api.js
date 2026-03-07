@@ -248,14 +248,100 @@ export async function fetchRandomTracks(count = 20, yearRange = null) {
    1 einziger Request an /me/playlists. Kein Nachladen einzelner
    Playlist-Details → verhindert Rate Limiting.
    ──────────────────────────────────────────────────────────── */
-export async function fetchUserPlaylists() {
-  const result = await spotifyFetch('/me/playlists?limit=50')
-  const items = result.items ?? []
+let playlistCache = { data: null, ts: 0 }
+let playlistInflight = null
+const PLAYLIST_CACHE_MS = 60_000
 
-  return items.map((pl) => ({
-    id: pl.id,
-    name: pl.name,
-    tracks: typeof pl.tracks?.total === 'number' ? pl.tracks.total : null,
-    image: pl.images?.[0]?.url ?? null,
-  }))
+export async function fetchUserPlaylists() {
+  if (playlistCache.data && Date.now() - playlistCache.ts < PLAYLIST_CACHE_MS) {
+    return playlistCache.data
+  }
+
+  if (playlistInflight) return playlistInflight
+
+  playlistInflight = (async () => {
+    try {
+      const all = []
+      let offset = 0
+      const limit = 50
+      const maxPages = 2
+
+      for (let page = 0; page < maxPages; page++) {
+        const result = await spotifyFetch(`/me/playlists?limit=${limit}&offset=${offset}`)
+        const items = result.items ?? []
+        for (const pl of items) {
+          all.push({
+            id: pl.id,
+            name: pl.name,
+            tracks: typeof pl.tracks?.total === 'number' ? pl.tracks.total : null,
+            image: pl.images?.[0]?.url ?? null,
+          })
+        }
+        if (!result.next || items.length < limit) break
+        offset += limit
+      }
+
+      playlistCache = { data: all, ts: Date.now() }
+      return all
+    } finally {
+      playlistInflight = null
+    }
+  })()
+
+  return playlistInflight
+}
+
+/* ── Discover Tracks (Tinder) ───────────────────────────────
+   Wie fetchTracksForGenre, aber mit zufälligem Startoffset
+   für Abwechslung bei wiederholten Aufrufen.
+   ──────────────────────────────────────────────────────────── */
+export async function fetchDiscoverTracks(searchQuery = null, count = 20, yearRange = null) {
+  if (!searchQuery) return fetchRandomTracks(count, yearRange)
+
+  const tracks = []
+  const marketParam = buildMarketParam()
+  const yearFilter = buildYearFilter(yearRange)
+  const q = encodeURIComponent(`${searchQuery}${yearFilter}`)
+  const baseOffset = Math.floor(Math.random() * 50)
+
+  for (let i = 0; i < 3; i++) {
+    if (tracks.length >= count) break
+    const offset = baseOffset + i * 10
+    if (offset > 950) break
+    try {
+      const result = await spotifyFetch(
+        `/search?q=${q}&type=track&limit=10&offset=${offset}${marketParam}`
+      )
+      for (const track of result.tracks?.items ?? []) {
+        const t = extractTrack(track)
+        if (t) tracks.push(t)
+      }
+      if ((result.tracks?.items?.length ?? 0) < 10) break
+    } catch (err) {
+      if (err.message.includes('einloggen')) throw err
+    }
+  }
+
+  return prioritizeWithPreview(shuffleArray(deduplicateTracks(tracks))).slice(0, count)
+}
+
+/* ── Playlist erstellen ──────────────────────────────────── */
+export async function createPlaylist(userId, name, description = '') {
+  return spotifyFetch(`/users/${encodeURIComponent(userId)}/playlists`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, description, public: false }),
+  })
+}
+
+/* ── Tracks zu Playlist hinzufügen ───────────────────────── */
+export async function addTracksToPlaylist(playlistId, trackUris) {
+  for (let i = 0; i < trackUris.length; i += 100) {
+    const chunk = trackUris.slice(i, i + 100)
+    await spotifyFetch(`/playlists/${encodeURIComponent(playlistId)}/tracks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uris: chunk }),
+    })
+  }
 }

@@ -7,7 +7,7 @@ import Navbar from '../components/Navbar'
 import GenreIcon from '../components/GenreIcon'
 import {
   Mic, Music, Calendar, Edit3, Circle, Zap, Image, CheckCircle,
-  Gamepad2, Shuffle, Settings, ListMusic,
+  Gamepad2, Shuffle, Settings, ListMusic, Search,
 } from '../lib/icons'
 
 /* ── Quick Presets ─────────────────────────────────────────── */
@@ -22,8 +22,10 @@ export default function HomePage() {
   const [selectedGenre, setSelectedGenre] = useState(null)
   const [selectedPlaylist, setSelectedPlaylist] = useState(null)
   const [loadingPlaylists, setLoadingPlaylists] = useState(true)
+  const [playlistError, setPlaylistError] = useState(null)
   const [tab, setTab] = useState('genre')
   const [regionFilter, setRegionFilter] = useState('all')
+  const [genreSearch, setGenreSearch] = useState('')
 
   /* ── Quiz settings ────────────────────────────────────────── */
   const [count, setCount] = useState(10)
@@ -38,14 +40,28 @@ export default function HomePage() {
 
   /* ── Derived lists ────────────────────────────────────────── */
   const regions = useMemo(() => getRegionsList(), [])
-  const genres = useMemo(() => getGenresList(regionFilter), [regionFilter])
+  const genres = useMemo(() => {
+    const list = getGenresList(regionFilter)
+    if (!genreSearch.trim()) return list
+    const q = genreSearch.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    return list.filter((g) =>
+      g.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)
+    )
+  }, [regionFilter, genreSearch])
 
-  useEffect(() => {
+  const loadPlaylists = useCallback(() => {
+    setLoadingPlaylists(true)
+    setPlaylistError(null)
     fetchUserPlaylists()
       .then(setPlaylists)
-      .catch(() => {})
+      .catch((err) => {
+        console.error('[Playlists]', err.message)
+        setPlaylistError(err.message)
+      })
       .finally(() => setLoadingPlaylists(false))
   }, [])
+
+  useEffect(() => { loadPlaylists() }, [loadPlaylists])
 
   /* Clear genre selection when switching regions (genre might not be in new list) */
   useEffect(() => {
@@ -168,7 +184,29 @@ export default function HomePage() {
 
         {/* ── Region Filter (only genre tab) ────────────────── */}
         {tab === 'genre' && (
-          <div className="region-filter">
+          <>
+            <div className="genre-search-wrap">
+              <Search size={16} />
+              <input
+                className="genre-search-input"
+                type="text"
+                placeholder="Genre suchen…"
+                value={genreSearch}
+                onChange={(e) => setGenreSearch(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {genreSearch && (
+                <button
+                  className="genre-search-clear"
+                  onClick={() => setGenreSearch('')}
+                  aria-label="Suche leeren"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+            <div className="region-filter">
             {regions.map((r) => (
               <button
                 key={r.id}
@@ -178,7 +216,8 @@ export default function HomePage() {
                 <GenreIcon icon={r.icon} size={14} /> {r.name}
               </button>
             ))}
-          </div>
+            </div>
+          </>
         )}
 
         {/* ── Genre Grid ────────────────────────────────────── */}
@@ -211,9 +250,24 @@ export default function HomePage() {
               <p className="text-muted" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
                 Playlists werden geladen…
               </p>
+            ) : playlistError ? (
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
+                <p className="text-muted" style={{ marginBottom: '0.75rem' }}>Playlists konnten nicht geladen werden.</p>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                  {playlistError}
+                </p>
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                  <button className="btn btn-primary btn-sm" onClick={loadPlaylists}>
+                    Erneut versuchen
+                  </button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => { logout(); }}>
+                    Neu einloggen
+                  </button>
+                </div>
+              </div>
             ) : playlists.length === 0 ? (
               <p className="text-muted" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
-                Keine Playlists gefunden.
+                Du hast noch keine Spotify-Playlists.
               </p>
             ) : (
               playlists.map((pl) => (

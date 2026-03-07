@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { MusicNote, ChefHat, BarChart, LogOut, Home, ArrowLeft } from '../lib/icons'
+import { MusicNote, ChefHat, BarChart, LogOut, Home, ArrowLeft, Compass } from '../lib/icons'
 
 /**
  * Spotify-style navigation bar – used across all authenticated pages.
@@ -44,6 +44,13 @@ export default function Navbar({ user, onLogout, minimal = false }) {
             >
               <BarChart size={18} />
               <span>Verlauf</span>
+            </button>
+            <button
+              className={`sp-nav-link ${location.pathname === '/discover' ? 'active' : ''}`}
+              onClick={() => navigate('/discover')}
+            >
+              <Compass size={18} />
+              <span>Entdecken</span>
             </button>
           </div>
         )}
