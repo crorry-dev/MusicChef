@@ -90,6 +90,17 @@ const PlayerBar = forwardRef(function PlayerBar(
       const a = audioRef.current
       if (a) { a.pause(); a.currentTime = 0 }
     },
+    async toggle() {
+      if (pbModeRef.current === 'sdk') {
+        const s = sdkPosRef.current
+        s.paused ? await sdkResume() : await sdkPause()
+      } else if (pbModeRef.current === 'audio') {
+        const a = audioRef.current
+        if (!a) return
+        if (a.paused) { a.play().catch(() => {}); setPlaying(true) }
+        else { a.pause(); setPlaying(false) }
+      }
+    },
     getProgress() {
       if (pbModeRef.current === 'sdk') {
         const s = sdkPosRef.current
@@ -263,14 +274,14 @@ function FeedbackBanner({ result, guessFields }) {
 /* ═══════════════════════════════════════════════════════════
    Multiple Choice Panel
    ═══════════════════════════════════════════════════════════ */
-function ChoiceField({ field, options, selectedValue, onSelect, correctValue, answered, fieldResult }) {
+function ChoiceField({ field, options, selectedValue, onSelect, correctValue, answered, fieldResult, showKeys }) {
   const cfg = { artist: '🎤 Interpret', title: '🎵 Titel', year: '📅 Jahr' }
 
   return (
     <div className="choice-field">
       <div className="input-label">{cfg[field] ?? field}</div>
       <div className="choice-options">
-        {options.map((opt) => {
+        {options.map((opt, idx) => {
           const isSelected = selectedValue === opt
           let cls = 'choice-card'
           if (answered && fieldResult) {
@@ -289,6 +300,9 @@ function ChoiceField({ field, options, selectedValue, onSelect, correctValue, an
               onClick={() => !answered && onSelect(field, opt)}
               disabled={answered}
             >
+              {showKeys && !answered && (
+                <span className="choice-key-badge">{idx + 1}</span>
+              )}
               {opt}
             </button>
           )
@@ -502,14 +516,40 @@ export default function QuizPage() {
   /* ── Keyboard ───────────────────────────────────────────── */
   useEffect(() => {
     const handler = (e) => {
+      const tag = document.activeElement?.tagName
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA'
+
+      /* Space → Play / Pause (prevent page scroll) */
+      if (e.key === ' ' && !isTyping) {
+        e.preventDefault()
+        playerRef.current?.toggle?.()
+        return
+      }
+
+      /* Enter → Submit or Next */
       if (e.key === 'Enter') {
-        if (answered) handleNext()
-        else if (document.activeElement?.tagName === 'INPUT') handleSubmit()
+        if (answered) { clearTimeout(autoNextTimer.current); autoNextTimer.current = null; handleNext() }
+        else if (isTyping) handleSubmit()
+        return
+      }
+
+      /* 1-4 → Choice selection (only in choice mode, not while typing) */
+      if (!isTyping && !answered && inputMode === 'choice' && choices) {
+        const num = parseInt(e.key, 10)
+        if (num >= 1 && num <= 4) {
+          e.preventDefault()
+          const fields = quizRef.current?.guessFields ?? []
+          const activeField = fields.find((f) => !fieldInputs[f]?.trim())
+          if (activeField && choices[activeField]) {
+            const opt = choices[activeField][num - 1]
+            if (opt !== undefined) handleChoiceSelect(activeField, String(opt))
+          }
+        }
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [answered, handleNext, handleSubmit])
+  }, [answered, handleNext, handleSubmit, inputMode, choices, fieldInputs, handleChoiceSelect])
 
   /* ── Auto-submit for choice mode when all fields selected ── */
   useEffect(() => {
@@ -641,6 +681,7 @@ export default function QuizPage() {
                   {guessFieldsList.map((field) => {
                     const opts = choices[field]
                     if (!opts) return null
+                    const firstEmpty = guessFieldsList.find((f) => !fieldInputs[f]?.trim())
                     return (
                       <ChoiceField
                         key={field}
@@ -648,6 +689,7 @@ export default function QuizPage() {
                         options={opts}
                         selectedValue={fieldInputs[field]}
                         onSelect={handleChoiceSelect}
+                        showKeys={field === firstEmpty}
                         correctValue={
                           field === 'artist' ? currentTrack?.artist
                             : field === 'title' ? currentTrack?.title
@@ -708,12 +750,17 @@ export default function QuizPage() {
 
             {!answered && inputMode === 'freetext' && (
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                Drücke Enter zum Absenden
+                Enter = Absenden  ·  Leertaste = Play/Pause
+              </p>
+            )}
+            {!answered && inputMode === 'choice' && (
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                1-4 = Auswahl  ·  Leertaste = Play/Pause
               </p>
             )}
             {answered && (
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                Drücke Enter für die nächste Frage
+                Enter = Nächste Frage  ·  Leertaste = Play/Pause
               </p>
             )}
           </div>
