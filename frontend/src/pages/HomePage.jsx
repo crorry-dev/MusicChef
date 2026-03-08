@@ -50,6 +50,11 @@ export default function HomePage() {
     )
   }, [regionFilter, genreSearch])
 
+  const ownedPlaylists = useMemo(() => {
+    if (!user?.id) return playlists
+    return playlists.filter((pl) => !pl.ownerId || pl.ownerId === user.id)
+  }, [playlists, user])
+
   const loadPlaylists = useCallback(() => {
     setLoadingPlaylists(true)
     setPlaylistError(null)
@@ -282,13 +287,15 @@ export default function HomePage() {
               <p className="text-muted" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
                 Du hast noch keine Spotify-Playlists.
               </p>
+            ) : ownedPlaylists.length === 0 ? (
+              <p className="text-muted" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
+                Keine eigenen Playlists gefunden.
+              </p>
             ) : (
-              playlists.map((pl) => {
-                const isOwned = !user?.id || !pl.ownerId || pl.ownerId === user.id
-                return (
+              ownedPlaylists.map((pl) => (
                 <div
                   key={pl.id}
-                  className={`playlist-card ${selectedPlaylist?.id === pl.id ? 'selected' : ''} ${!isOwned ? 'playlist-foreign' : ''}`}
+                  className={`playlist-card ${selectedPlaylist?.id === pl.id ? 'selected' : ''}`}
                   onClick={() => handlePlaylistSelect(pl)}
                 >
                   {pl.image ? (
@@ -303,7 +310,7 @@ export default function HomePage() {
                     )}
                   </div>
                 </div>
-              )})
+              ))
             )}
           </div>
         )}

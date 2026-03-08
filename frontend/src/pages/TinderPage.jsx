@@ -115,8 +115,12 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
         try { await sdkPlay(trackId); if (!cancelled) { updateMode('sdk'); setPlaying(true) }; return } catch { /* fallback */ }
       }
       if (previewUrl && a && !cancelled) {
-        updateMode('audio'); a.src = previewUrl; a.load()
-        a.play().then(() => { if (!cancelled) setPlaying(true) }).catch(() => {})
+        updateMode('audio')
+        a.src = previewUrl
+        if (!isMobile()) {
+          a.load()
+          a.play().then(() => { if (!cancelled) setPlaying(true) }).catch(() => {})
+        }
       }
     })()
     return () => { cancelled = true }
@@ -126,7 +130,8 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
     if (modeRef.current === 'sdk') { playing ? await sdkPause() : await sdkResume() }
     else if (modeRef.current === 'audio') {
       const a = audioRef.current; if (!a) return
-      if (playing) { a.pause(); setPlaying(false) } else { a.play().catch(() => {}); setPlaying(true) }
+      if (playing) { a.pause(); setPlaying(false) }
+      else { a.play().then(() => setPlaying(true)).catch(() => setPlaying(false)) }
     }
   }, [playing])
 
@@ -135,7 +140,7 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
 
   return (
     <div className="td-card-player">
-      <audio ref={audioRef} preload="auto" style={{ display: 'none' }} />
+      <audio ref={audioRef} preload="auto" playsInline style={{ display: 'none' }} />
       <button className="td-play-btn" onClick={togglePlay} disabled={!mode} aria-label={playing ? 'Pause' : 'Abspielen'}>
         {playing ? <Pause size={20} /> : <Play size={20} />}
       </button>

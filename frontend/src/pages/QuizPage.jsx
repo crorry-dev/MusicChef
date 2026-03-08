@@ -196,7 +196,13 @@ const PlayerBar = forwardRef(function PlayerBar(
       if (sdkReady && trackId && !isMobile()) {
         try { await sdkPlay(trackId); if (!cancelled) { setMode('sdk'); setPlaying(true) } return } catch (e) { console.warn('[PlayerBar] SDK:', e.message) }
       }
-      if (previewUrl && a && !cancelled) { setMode('audio'); a.src = previewUrl; a.load() }
+      if (previewUrl && a && !cancelled) {
+        setMode('audio')
+        a.src = previewUrl
+        if (!isMobile()) {
+          a.load()
+        }
+      }
     })()
     return () => { cancelled = true }
   }, [trackId, previewUrl, sdkReady])
@@ -205,7 +211,8 @@ const PlayerBar = forwardRef(function PlayerBar(
     if (pbModeRef.current === 'sdk') { playing ? await sdkPause() : await sdkResume() }
     else if (pbModeRef.current === 'audio') {
       const a = audioRef.current; if (!a) return
-      if (playing) { a.pause(); setPlaying(false) } else { a.play().catch(() => {}); setPlaying(true) }
+      if (playing) { a.pause(); setPlaying(false) }
+      else { a.play().then(() => setPlaying(true)).catch(() => setPlaying(false)) }
     }
   }, [playing])
 
@@ -223,7 +230,7 @@ const PlayerBar = forwardRef(function PlayerBar(
 
   return (
     <div className="player-bar">
-      <audio ref={audioRef} preload="auto" style={{ display: 'none' }} />
+      <audio ref={audioRef} preload="auto" playsInline style={{ display: 'none' }} />
       <button className="pb-btn pb-play" onClick={togglePlay} disabled={!pbMode} aria-label={playing ? 'Pause' : 'Abspielen'}>
         {playing ? <Pause size={18} /> : <Play size={18} />}
       </button>
@@ -239,10 +246,10 @@ const PlayerBar = forwardRef(function PlayerBar(
       {!pbMode && !sdkReady && !sdkError && trackId && !isMobile() && (
         <span className="pb-connecting"><span className="spinner spinner-sm" /> Verbinde…</span>
       )}
-      {!pbMode && sdkError && !previewUrl && (
-        <span className="pb-no-preview">{isMobile() ? 'Keine Vorschau verfügbar' : 'Premium nötig für Wiedergabe'}</span>
+      {!pbMode && (sdkError || isMobile()) && !previewUrl && (
+        <span className="pb-no-preview">Keine Vorschau verfügbar</span>
       )}
-      {!pbMode && !sdkError && sdkReady && !previewUrl && (
+      {!pbMode && !sdkError && sdkReady && !previewUrl && !isMobile() && (
         <span className="pb-no-preview">Keine Vorschau verfügbar</span>
       )}
     </div>
