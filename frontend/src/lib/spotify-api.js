@@ -311,6 +311,7 @@ export async function fetchUserPlaylists() {
             name: pl.name,
             tracks: typeof pl.tracks?.total === 'number' ? pl.tracks.total : null,
             image: pl.images?.[0]?.url ?? null,
+            ownerId: pl.owner?.id ?? null,
           })
         }
         if (!result.next || items.length < limit) break

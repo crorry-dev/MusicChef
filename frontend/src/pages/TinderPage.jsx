@@ -17,6 +17,7 @@ import {
   resume as sdkResume,
   onStateChange as sdkOnStateChange,
   disconnect as sdkDisconnect,
+  isMobile,
 } from '../lib/spotify-player'
 import Navbar from '../components/Navbar'
 import GenreIcon from '../components/GenreIcon'
@@ -110,10 +111,13 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
     if (!trackId && !previewUrl) return
     let cancelled = false
     ;(async () => {
-      if (sdkReady && trackId) {
+      if (sdkReady && trackId && !isMobile()) {
         try { await sdkPlay(trackId); if (!cancelled) { updateMode('sdk'); setPlaying(true) }; return } catch { /* fallback */ }
       }
-      if (previewUrl && a && !cancelled) { updateMode('audio'); a.src = previewUrl; a.load() }
+      if (previewUrl && a && !cancelled) {
+        updateMode('audio'); a.src = previewUrl; a.load()
+        a.play().then(() => { if (!cancelled) setPlaying(true) }).catch(() => {})
+      }
     })()
     return () => { cancelled = true }
   }, [trackId, previewUrl, sdkReady])

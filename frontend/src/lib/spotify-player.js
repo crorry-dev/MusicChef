@@ -4,6 +4,9 @@
  * Ermöglicht vollständige Track-Wiedergabe im Browser (erfordert Spotify Premium).
  * Wenn Premium nicht verfügbar ist, schlagen connectPlayer() oder play() fehl,
  * und der Aufrufer kann auf preview_url-Audio-Fallback zurückfallen.
+ *
+ * Auf mobilen Browsern ist das SDK nicht verfügbar – connectPlayer() gibt
+ * sofort einen Fehler, damit der Aufrufer direkt den Audio-Fallback nutzt.
  */
 import { getValidToken } from './spotify-pkce'
 
@@ -11,6 +14,16 @@ let player = null
 let deviceId = null
 let initPromise = null
 const stateListeners = new Set()
+
+/* ── Mobile Detection ─────────────────────────────────────── */
+function isMobileBrowser() {
+  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent))
+}
+
+export function isMobile() {
+  return isMobileBrowser()
+}
 
 /* ── SDK Script laden ──────────────────────────────────────── */
 function loadScript() {
@@ -28,6 +41,10 @@ function loadScript() {
 
 /* ── Player verbinden (Singleton) ─────────────────────────── */
 export async function connectPlayer() {
+  if (isMobileBrowser()) {
+    throw new Error('Spotify SDK nicht verfügbar auf mobilen Browsern')
+  }
+
   if (deviceId) return deviceId
   if (initPromise) return initPromise
 

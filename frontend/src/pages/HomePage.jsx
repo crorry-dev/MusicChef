@@ -283,10 +283,12 @@ export default function HomePage() {
                 Du hast noch keine Spotify-Playlists.
               </p>
             ) : (
-              playlists.map((pl) => (
+              playlists.map((pl) => {
+                const isOwned = !user?.id || !pl.ownerId || pl.ownerId === user.id
+                return (
                 <div
                   key={pl.id}
-                  className={`playlist-card ${selectedPlaylist?.id === pl.id ? 'selected' : ''}`}
+                  className={`playlist-card ${selectedPlaylist?.id === pl.id ? 'selected' : ''} ${!isOwned ? 'playlist-foreign' : ''}`}
                   onClick={() => handlePlaylistSelect(pl)}
                 >
                   {pl.image ? (
@@ -301,7 +303,7 @@ export default function HomePage() {
                     )}
                   </div>
                 </div>
-              ))
+              )})
             )}
           </div>
         )}

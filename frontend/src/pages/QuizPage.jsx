@@ -12,6 +12,7 @@ import {
   seek as sdkSeek,
   onStateChange as sdkOnStateChange,
   disconnect as sdkDisconnect,
+  isMobile,
 } from '../lib/spotify-player'
 import Navbar from '../components/Navbar'
 import GenreIcon from '../components/GenreIcon'
@@ -151,7 +152,9 @@ const PlayerBar = forwardRef(function PlayerBar(
     const onCanPlay = () => {
       if (pbModeRef.current === 'audio' && !autoPlayedRef.current) {
         autoPlayedRef.current = true
-        a.play().then(() => setPlaying(true)).catch(() => {})
+        a.play().then(() => setPlaying(true)).catch(() => {
+          setPlaying(false)
+        })
       }
     }
     const onEnded = () => { if (pbModeRef.current === 'audio') { setPlaying(false); onTrackEndRef.current?.() } }
@@ -189,7 +192,8 @@ const PlayerBar = forwardRef(function PlayerBar(
     if (!trackId && !previewUrl) return
     let cancelled = false
     ;(async () => {
-      if (sdkReady && trackId) {
+      /* Auf Mobile sofort Audio-Fallback, SDK überspringen */
+      if (sdkReady && trackId && !isMobile()) {
         try { await sdkPlay(trackId); if (!cancelled) { setMode('sdk'); setPlaying(true) } return } catch (e) { console.warn('[PlayerBar] SDK:', e.message) }
       }
       if (previewUrl && a && !cancelled) { setMode('audio'); a.src = previewUrl; a.load() }
@@ -232,11 +236,11 @@ const PlayerBar = forwardRef(function PlayerBar(
       </div>
       <span className="pb-time">{fmt(duration)}</span>
       {canSkip && <button className="pb-btn pb-skip" onClick={onSkip} aria-label="Überspringen"><SkipForward size={18} /></button>}
-      {!pbMode && !sdkReady && !sdkError && trackId && (
+      {!pbMode && !sdkReady && !sdkError && trackId && !isMobile() && (
         <span className="pb-connecting"><span className="spinner spinner-sm" /> Verbinde…</span>
       )}
       {!pbMode && sdkError && !previewUrl && (
-        <span className="pb-no-preview">Premium nötig für Wiedergabe</span>
+        <span className="pb-no-preview">{isMobile() ? 'Keine Vorschau verfügbar' : 'Premium nötig für Wiedergabe'}</span>
       )}
       {!pbMode && !sdkError && sdkReady && !previewUrl && (
         <span className="pb-no-preview">Keine Vorschau verfügbar</span>
