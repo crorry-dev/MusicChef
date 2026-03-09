@@ -110,6 +110,7 @@ function HistoryCard({ quiz }) {
 
 export default function HistoryPage() {
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -157,15 +158,7 @@ export default function HistoryPage() {
 
   return (
     <div className="history-page">
-      {/* Navbar */}
-      <nav className="sp-navbar">
-        <div className="sp-navbar-inner">
-          <Link to="/home" className="sp-nav-brand">
-            <div className="sp-nav-logo"><MusicNote size={20} /></div>
-            <span className="sp-nav-title">MusicChef</span>
-          </Link>
-        </div>
-      </nav>
+      <Navbar user={user} onLogout={logout} />
 
       <div className="container">
         <div className="history-header">
@@ -176,12 +169,6 @@ export default function HistoryPage() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => navigate('/home')}
-            >
-                            <ArrowLeft size={14} /> Zurück
-            </button>
             {history.length > 0 && (
               <button
                 className={`btn btn-sm ${clearConfirm ? 'btn-danger' : 'btn-ghost'}`}
