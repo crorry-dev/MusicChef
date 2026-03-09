@@ -120,7 +120,7 @@ describe('fetchTracksForPlaylist', () => {
 describe('checkPlaylistAccess', () => {
   it('gibt accessible: true für zugängliche Playlist', async () => {
     mockFetch.mockReturnValue(
-      jsonResponse(200, { items: [{ track: spotifyTrack('t1') }], total: 1, next: null })
+      jsonResponse(200, { id: 'good-pl', public: true, tracks: { total: 42 } })
     )
 
     const result = await checkPlaylistAccess('good-pl')

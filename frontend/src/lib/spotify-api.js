@@ -185,17 +185,32 @@ export async function fetchTracksForGenre(searchQuery, count = 30, yearRange = n
 }
 
 /* ── Playlist Tracks ──────────────────────────────────────── */
+async function fetchPlaylistTracksPage(playlistId, limit, offset) {
+  const marketParam = buildMarketParam()
+  const baseUrl = `/playlists/${playlistId}/tracks?limit=${limit}&offset=${offset}`
+
+  /* Versuch 1: mit Market-Parameter */
+  if (marketParam) {
+    try {
+      return await spotifyFetch(`${baseUrl}${marketParam}`)
+    } catch (err) {
+      if (!err.message.includes('Forbidden') && !err.message.includes('403')) throw err
+      console.warn('[fetchPlaylistTracksPage] 403 mit market – Retry ohne market')
+    }
+  }
+
+  /* Versuch 2: ohne Market-Parameter */
+  return spotifyFetch(baseUrl)
+}
+
 export async function fetchTracksForPlaylist(playlistId, count = 20) {
   const tracks = []
   let offset = 0
   let lastError = null
-  const marketParam = buildMarketParam()
 
   while (tracks.length < count && offset < 200) {
     try {
-      const result = await spotifyFetch(
-        `/playlists/${playlistId}/tracks?limit=50&offset=${offset}${marketParam}&additional_types=track`
-      )
+      const result = await fetchPlaylistTracksPage(playlistId, 50, offset)
       const items = result.items ?? []
       if (items.length === 0) break
 
@@ -232,10 +247,8 @@ export async function fetchTracksForPlaylist(playlistId, count = 20) {
    ──────────────────────────────────────────────────────────── */
 export async function checkPlaylistAccess(playlistId) {
   try {
-    const marketParam = buildMarketParam()
-    await spotifyFetch(
-      `/playlists/${playlistId}/tracks?limit=1&offset=0${marketParam}&additional_types=track`
-    )
+    /* Metadata-Endpunkt ist robuster als /tracks – weniger 403-Probleme */
+    await spotifyFetch(`/playlists/${playlistId}?fields=id,public,tracks.total`)
     return { accessible: true }
   } catch (err) {
     if (err.message.includes('Forbidden') || err.message.includes('403')) {

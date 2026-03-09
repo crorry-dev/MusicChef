@@ -15,6 +15,7 @@ import {
   play as sdkPlay,
   pause as sdkPause,
   resume as sdkResume,
+  seek as sdkSeek,
   onStateChange as sdkOnStateChange,
   disconnect as sdkDisconnect,
   isMobile,
@@ -42,6 +43,7 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
   const [playing, setPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(PREVIEW_DURATION)
+  const [seeking, setSeeking] = useState(false)
   const [mode, setMode] = useState(null)
 
   function updateMode(m) { modeRef.current = m; setMode(m) }
@@ -88,8 +90,8 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
   }, [])
 
   /* Position ticker */
-  useEffect(() => {
-    const tick = () => {
+  const syncPos = useCallback(() => {
+    if (!seeking) {
       if (modeRef.current === 'sdk') {
         const s = sdkPosRef.current
         const pos = s.paused ? s.ms / 1000 : s.ms / 1000 + (Date.now() - s.ts) / 1000
@@ -98,11 +100,14 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
         const a = audioRef.current
         if (a) setCurrentTime(a.currentTime)
       }
-      animRef.current = requestAnimationFrame(tick)
     }
-    animRef.current = requestAnimationFrame(tick)
+    animRef.current = requestAnimationFrame(syncPos)
+  }, [seeking])
+
+  useEffect(() => {
+    animRef.current = requestAnimationFrame(syncPos)
     return () => cancelAnimationFrame(animRef.current)
-  }, [])
+  }, [syncPos])
 
   /* Track change */
   useEffect(() => {
@@ -137,6 +142,15 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
     }
   }, [playing])
 
+  const handleSeekStart = useCallback(() => setSeeking(true), [])
+  const handleSeekChange = useCallback((e) => setCurrentTime(parseFloat(e.target.value)), [])
+  const handleSeekEnd = useCallback(async (e) => {
+    const v = parseFloat(e.target.value)
+    if (modeRef.current === 'sdk') { await sdkSeek(v * 1000); sdkPosRef.current = { ...sdkPosRef.current, ms: v * 1000, ts: Date.now() } }
+    else if (modeRef.current === 'audio') { const a = audioRef.current; if (a) a.currentTime = v }
+    setSeeking(false)
+  }, [])
+
   const fmt = (s) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`
   const pct = duration > 0 ? (currentTime / duration) * 100 : 0
 
@@ -149,6 +163,9 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
       <span className="td-player-time">{fmt(currentTime)}</span>
       <div className="td-seek-wrap">
         <div className="td-seek-track"><div className="td-seek-fill" style={{ width: `${pct}%` }} /></div>
+        <input className="td-seek-input" type="range" min={0} max={duration} step={0.1} value={currentTime}
+          onPointerDown={handleSeekStart} onInput={handleSeekChange} onChange={handleSeekChange} onPointerUp={handleSeekEnd}
+          disabled={!mode} aria-label="Seek" />
       </div>
       <span className="td-player-time">{fmt(duration)}</span>
     </div>
