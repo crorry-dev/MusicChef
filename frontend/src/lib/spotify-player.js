@@ -14,6 +14,7 @@ let player = null
 let deviceId = null
 let initPromise = null
 const stateListeners = new Set()
+const connectionListeners = new Set()
 
 /* ── Mobile Detection ─────────────────────────────────────── */
 function isMobileBrowser() {
@@ -66,10 +67,14 @@ export async function connectPlayer() {
       player.addListener('ready', ({ device_id }) => {
         clearTimeout(timeout)
         deviceId = device_id
+        for (const fn of connectionListeners) fn(true)
         resolve(device_id)
       })
 
-      player.addListener('not_ready', () => { deviceId = null })
+      player.addListener('not_ready', () => {
+        deviceId = null
+        for (const fn of connectionListeners) fn(false)
+      })
 
       player.addListener('initialization_error', ({ message }) => {
         clearTimeout(timeout)
@@ -142,6 +147,64 @@ export function onStateChange(fn) {
   return () => stateListeners.delete(fn)
 }
 
+/* ── Connection Listener ───────────────────────────────────── */
+export function onConnectionChange(fn) {
+  connectionListeners.add(fn)
+  return () => connectionListeners.delete(fn)
+}
+
+/* ── Reconnect ─────────────────────────────────────────────── */
+export async function reconnect() {
+  if (deviceId) return deviceId
+  if (player) {
+    try { player.disconnect() } catch { /* silent */ }
+  }
+  player = null
+  deviceId = null
+  initPromise = null
+  return connectPlayer()
+}
+
+/* ── Playlist / Context abspielen ──────────────────────────── */
+export async function playContext(contextUri, shuffle = true) {
+  if (!deviceId) throw new Error('Player nicht verbunden')
+  const token = await getValidToken()
+
+  if (shuffle) {
+    await fetch(
+      `https://api.spotify.com/v1/me/player/shuffle?state=true&device_id=${deviceId}`,
+      { method: 'PUT', headers: { Authorization: `Bearer ${token}` } },
+    )
+  }
+
+  const res = await fetch(
+    `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+    {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context_uri: contextUri }),
+    },
+  )
+
+  if (res.status === 403) throw new Error('Spotify Premium erforderlich')
+  if (!res.ok && res.status !== 204) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error?.message || `Playlist-Wiedergabe fehlgeschlagen (${res.status})`)
+  }
+}
+
+/* ── Nächster Track (Context-Playback) ─────────────────────── */
+export async function skipToNext() {
+  if (!player) throw new Error('Player nicht verbunden')
+  await player.nextTrack()
+}
+
+/* ── Player-State lesen ────────────────────────────────────── */
+export async function getPlayerState() {
+  if (!player) return null
+  return player.getCurrentState()
+}
+
 /* ── Aufräumen ─────────────────────────────────────────────── */
 export async function disconnect() {
   try { player?.disconnect() } catch { /* silent */ }
@@ -149,8 +212,91 @@ export async function disconnect() {
   deviceId = null
   initPromise = null
   stateListeners.clear()
+  connectionListeners.clear()
 }
 
 export function isConnected() {
   return !!deviceId
+}
+
+/* ── Mobile Spotify Connect (kein SDK nötig) ──────────────── */
+let mobileDevice = null
+
+async function findDevice() {
+  const token = await getValidToken()
+  const res = await fetch('https://api.spotify.com/v1/me/player/devices', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) return null
+  const { devices } = await res.json()
+  return (
+    devices.find((d) => d.is_active)
+    || devices.find((d) => d.type === 'Smartphone')
+    || devices[0]
+    || null
+  )
+}
+
+export async function mobilePlay(trackId) {
+  const token = await getValidToken()
+  if (!mobileDevice) mobileDevice = await findDevice()
+  if (!mobileDevice) throw new Error('NO_DEVICE')
+
+  const res = await fetch(
+    `https://api.spotify.com/v1/me/player/play?device_id=${mobileDevice.id}`,
+    {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
+    },
+  )
+
+  if (res.status === 404) {
+    mobileDevice = await findDevice()
+    if (!mobileDevice) throw new Error('NO_DEVICE')
+    const r2 = await fetch(
+      `https://api.spotify.com/v1/me/player/play?device_id=${mobileDevice.id}`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
+      },
+    )
+    if (!r2.ok && r2.status !== 204) throw new Error('Wiedergabe fehlgeschlagen')
+    return
+  }
+
+  if (res.status === 403) throw new Error('Spotify Premium erforderlich')
+  if (!res.ok && res.status !== 204) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error?.message || 'Wiedergabe fehlgeschlagen')
+  }
+}
+
+export async function mobilePause() {
+  const token = await getValidToken()
+  await fetch('https://api.spotify.com/v1/me/player/pause', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+  }).catch(() => {})
+}
+
+export async function mobileResume() {
+  const token = await getValidToken()
+  await fetch('https://api.spotify.com/v1/me/player/play', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+  }).catch(() => {})
+}
+
+export async function mobileSeek(positionMs) {
+  const token = await getValidToken()
+  await fetch(
+    `https://api.spotify.com/v1/me/player/seek?position_ms=${Math.round(positionMs)}`,
+    { method: 'PUT', headers: { Authorization: `Bearer ${token}` } },
+  ).catch(() => {})
+}
+
+export function clearMobileDevice() {
+  mobileDevice = null
 }

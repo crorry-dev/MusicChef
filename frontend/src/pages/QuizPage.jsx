@@ -2,8 +2,13 @@ import React, {
   useState, useEffect, useRef, useCallback, useMemo,
   forwardRef, useImperativeHandle,
 } from 'react'
-import { useLocation, useNavigate, Link } from 'react-router-dom'
-import { createQuiz, submitQuizAnswer, GUESS_FIELDS, getSpeedTier } from '../lib/quiz-engine'
+import { useLocation, useNavigate, Link, Navigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import {
+  createQuiz, submitQuizAnswer, GUESS_FIELDS, getSpeedTier,
+  extractTrackFromSdkState, generateStreamChoices,
+} from '../lib/quiz-engine'
+import { fetchTrackYear } from '../lib/spotify-api'
 import {
   connectPlayer as initSdk,
   play as sdkPlay,
@@ -11,8 +16,18 @@ import {
   resume as sdkResume,
   seek as sdkSeek,
   onStateChange as sdkOnStateChange,
+  onConnectionChange as sdkOnConnectionChange,
+  reconnect as sdkReconnect,
   disconnect as sdkDisconnect,
+  playContext as sdkPlayContext,
+  skipToNext as sdkSkipToNext,
+  getPlayerState as sdkGetPlayerState,
   isMobile,
+  mobilePlay as connectPlay,
+  mobilePause as connectPause,
+  mobileResume as connectResume,
+  mobileSeek as connectSeekTo,
+  clearMobileDevice,
 } from '../lib/spotify-player'
 import Navbar from '../components/Navbar'
 import GenreIcon from '../components/GenreIcon'
@@ -68,7 +83,7 @@ function QuizLoadingScreen() {
    Bottom Player Bar – Spotify SDK + Audio Preview Fallback
    ═══════════════════════════════════════════════════════════ */
 const PlayerBar = forwardRef(function PlayerBar(
-  { trackId, previewUrl, sdkReady, sdkError, onSkip, canSkip, onTrackEnd },
+  { trackId, previewUrl, sdkReady, sdkError, onSkip, canSkip, onTrackEnd, contextMode, durationMs },
   ref,
 ) {
   const audioRef = useRef(null)
@@ -81,11 +96,16 @@ const PlayerBar = forwardRef(function PlayerBar(
   const onTrackEndRef = useRef(onTrackEnd)
   onTrackEndRef.current = onTrackEnd
 
+  /* Connect-Mode state (für Mobile Spotify Connect) */
+  const connectRef = useRef({ startTs: 0, offsetMs: 0, durMs: 30000, paused: true })
+
   const [playing, setPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(PREVIEW_DURATION)
   const [seeking, setSeeking] = useState(false)
   const [pbMode, setPbMode] = useState(null)
+  const [noDevice, setNoDevice] = useState(false)
+  const [retryConnect, setRetryConnect] = useState(0)
 
   function setMode(m) { pbModeRef.current = m; setPbMode(m) }
 
@@ -95,6 +115,7 @@ const PlayerBar = forwardRef(function PlayerBar(
       setPlaying(false)
       setCurrentTime(0)
       if (pbModeRef.current === 'sdk') await sdkPause()
+      if (pbModeRef.current === 'connect') { await connectPause(); connectRef.current.paused = true; connectRef.current.offsetMs = 0 }
       const a = audioRef.current
       if (a) { a.pause(); a.currentTime = 0 }
     },
@@ -102,6 +123,13 @@ const PlayerBar = forwardRef(function PlayerBar(
       if (pbModeRef.current === 'sdk') {
         const s = sdkPosRef.current
         s.paused ? await sdkResume() : await sdkPause()
+      } else if (pbModeRef.current === 'connect') {
+        const c = connectRef.current
+        if (c.paused) {
+          await connectResume(); c.startTs = Date.now(); c.paused = false; setPlaying(true)
+        } else {
+          await connectPause(); c.offsetMs += Date.now() - c.startTs; c.paused = true; setPlaying(false)
+        }
       } else if (pbModeRef.current === 'audio') {
         const a = audioRef.current
         if (!a) return
@@ -114,6 +142,11 @@ const PlayerBar = forwardRef(function PlayerBar(
         const s = sdkPosRef.current
         const pos = s.paused ? s.ms / 1000 : s.ms / 1000 + (Date.now() - s.ts) / 1000
         return durRef.current > 0 ? Math.min(pos / durRef.current, 1) : 0
+      }
+      if (pbModeRef.current === 'connect') {
+        const c = connectRef.current
+        const elapsed = c.paused ? c.offsetMs : c.offsetMs + (Date.now() - c.startTs)
+        return c.durMs > 0 ? Math.min(elapsed / c.durMs, 1) : 0
       }
       if (pbModeRef.current === 'audio') {
         const a = audioRef.current
@@ -173,6 +206,17 @@ const PlayerBar = forwardRef(function PlayerBar(
           ? s.ms / 1000
           : s.ms / 1000 + (Date.now() - s.ts) / 1000
         setCurrentTime(Math.max(0, pos))
+      } else if (pbModeRef.current === 'connect') {
+        const c = connectRef.current
+        const elapsed = c.paused ? c.offsetMs : c.offsetMs + (Date.now() - c.startTs)
+        const pos = elapsed / 1000
+        const dur = c.durMs / 1000
+        setCurrentTime(Math.max(0, Math.min(pos, dur)))
+        if (!c.paused && pos >= dur) {
+          c.paused = true
+          setPlaying(false)
+          onTrackEndRef.current?.()
+        }
       } else if (pbModeRef.current === 'audio') {
         const a = audioRef.current
         if (a) setCurrentTime(a.currentTime)
@@ -187,15 +231,46 @@ const PlayerBar = forwardRef(function PlayerBar(
   useEffect(() => {
     const a = audioRef.current
     setPlaying(false); setCurrentTime(0); durRef.current = PREVIEW_DURATION; setDuration(PREVIEW_DURATION); autoPlayedRef.current = false; trackStartedRef.current = false
+    connectRef.current = { startTs: 0, offsetMs: 0, durMs: 30000, paused: true }
+    setNoDevice(false)
     if (a) { a.pause(); a.removeAttribute('src') }
     setMode(null)
+
+    /* Context-Mode: Track spielt bereits via Playlist-Context */
+    if (contextMode && sdkReady) {
+      setMode('sdk')
+      setPlaying(true)
+      return
+    }
+
     if (!trackId && !previewUrl) return
     let cancelled = false
     ;(async () => {
-      /* Auf Mobile sofort Audio-Fallback, SDK überspringen */
+      /* Desktop: SDK */
       if (sdkReady && trackId && !isMobile()) {
         try { await sdkPlay(trackId); if (!cancelled) { setMode('sdk'); setPlaying(true) } return } catch (e) { console.warn('[PlayerBar] SDK:', e.message) }
       }
+
+      /* Mobile: Spotify Connect – spielt auf der Spotify-App des Handys */
+      if (isMobile() && trackId) {
+        try {
+          await connectPlay(trackId)
+          if (!cancelled) {
+            const dur = (durationMs && durationMs > 0) ? durationMs : 30000
+            connectRef.current = { startTs: Date.now(), offsetMs: 0, durMs: dur, paused: false }
+            durRef.current = dur / 1000
+            setDuration(dur / 1000)
+            setMode('connect')
+            setPlaying(true)
+          }
+          return
+        } catch (e) {
+          console.warn('[PlayerBar] Connect:', e.message)
+          if (e.message === 'NO_DEVICE' && !cancelled) setNoDevice(true)
+        }
+      }
+
+      /* Fallback: Audio-Preview */
       if (previewUrl && a && !cancelled) {
         setMode('audio')
         a.src = previewUrl
@@ -203,10 +278,18 @@ const PlayerBar = forwardRef(function PlayerBar(
       }
     })()
     return () => { cancelled = true }
-  }, [trackId, previewUrl, sdkReady])
+  }, [trackId, previewUrl, sdkReady, contextMode, durationMs, retryConnect])
 
   const togglePlay = useCallback(async () => {
     if (pbModeRef.current === 'sdk') { playing ? await sdkPause() : await sdkResume() }
+    else if (pbModeRef.current === 'connect') {
+      const c = connectRef.current
+      if (c.paused) {
+        await connectResume(); c.startTs = Date.now(); c.paused = false; setPlaying(true)
+      } else {
+        await connectPause(); c.offsetMs += Date.now() - c.startTs; c.paused = true; setPlaying(false)
+      }
+    }
     else if (pbModeRef.current === 'audio') {
       const a = audioRef.current; if (!a) return
       if (playing) { a.pause(); setPlaying(false) }
@@ -219,6 +302,7 @@ const PlayerBar = forwardRef(function PlayerBar(
   const handleSeekEnd = useCallback(async (e) => {
     const v = parseFloat(e.target.value)
     if (pbModeRef.current === 'sdk') { await sdkSeek(v * 1000); sdkPosRef.current = { ...sdkPosRef.current, ms: v * 1000, ts: Date.now() } }
+    else if (pbModeRef.current === 'connect') { await connectSeekTo(v * 1000); connectRef.current.offsetMs = v * 1000; connectRef.current.startTs = Date.now() }
     else if (pbModeRef.current === 'audio') { const a = audioRef.current; if (a) a.currentTime = v }
     setSeeking(false)
   }, [])
@@ -244,7 +328,22 @@ const PlayerBar = forwardRef(function PlayerBar(
       {!pbMode && !sdkReady && !sdkError && trackId && !isMobile() && (
         <span className="pb-connecting"><span className="spinner spinner-sm" /> Verbinde…</span>
       )}
-      {!pbMode && (sdkError || isMobile()) && !previewUrl && (
+      {!pbMode && isMobile() && noDevice && (
+        <span className="pb-no-preview" style={{ fontSize: '0.75rem' }}>
+          Öffne Spotify auf deinem Handy
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ marginLeft: '0.5rem', fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
+            onClick={() => { setNoDevice(false); clearMobileDevice(); setRetryConnect((n) => n + 1) }}
+          >
+            Erneut versuchen
+          </button>
+        </span>
+      )}
+      {!pbMode && isMobile() && !noDevice && !previewUrl && trackId && (
+        <span className="pb-connecting"><span className="spinner spinner-sm" /> Verbinde…</span>
+      )}
+      {!pbMode && !isMobile() && (sdkError) && !previewUrl && (
         <span className="pb-no-preview">Keine Vorschau verfügbar</span>
       )}
       {!pbMode && !sdkError && sdkReady && !previewUrl && !isMobile() && (
@@ -350,6 +449,7 @@ function ChoiceField({ field, options, selectedValue, onSelect, correctValue, an
 export default function QuizPage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { logout } = useAuth()
   const quizConfig = location.state
 
   const [quizId, setQuizId] = useState(null)
@@ -380,6 +480,11 @@ export default function QuizPage() {
   /* Spotify SDK */
   const [sdkReady, setSdkReady] = useState(false)
   const [sdkError, setSdkError] = useState(null)
+  const [sdkDisconnected, setSdkDisconnected] = useState(false)
+  const [sdkReconnecting, setSdkReconnecting] = useState(false)
+  const [streamPending, setStreamPending] = useState(false)
+  const [streamLoading, setStreamLoading] = useState(false)
+  const streamSeenIdsRef = useRef(new Set())
 
   useEffect(() => {
     let cancelled = false
@@ -389,7 +494,12 @@ export default function QuizPage() {
         console.warn('[Quiz] SDK:', err.message)
         if (!cancelled) setSdkError(err.message)
       })
-    return () => { cancelled = true; sdkDisconnect() }
+    const unsubConnection = sdkOnConnectionChange((connected) => {
+      if (cancelled) return
+      setSdkDisconnected(!connected)
+      if (connected) setSdkReconnecting(false)
+    })
+    return () => { cancelled = true; unsubConnection(); sdkDisconnect() }
   }, [])
 
   /* Timer tick */
@@ -426,6 +536,13 @@ export default function QuizPage() {
         quizRef.current = quiz
         setQuizId(quiz.id)
         setTotalQuestions(quiz.totalQuestions)
+
+        if (quiz.streamMode) {
+          /* Stream-Modus: warte auf SDK bevor erste Frage geladen wird */
+          setStreamPending(true)
+          return
+        }
+
         const first = quiz.tracks[0]
         const q = {
           index: 0,
@@ -436,10 +553,77 @@ export default function QuizPage() {
         }
         if (quiz.allChoices) q.choices = quiz.allChoices[0]
         setCurrentQuestion(q)
+        setLoading(false)
       })
-      .catch((e) => setError(e.message || 'Quiz konnte nicht geladen werden.'))
-      .finally(() => setLoading(false))
+      .catch((e) => { setError(e.message || 'Quiz konnte nicht geladen werden.'); setLoading(false) })
   }, [])
+
+  /* ── Stream-Mode: Playlist via SDK starten ──────────────── */
+  useEffect(() => {
+    if (!streamPending || !sdkReady) return
+    const quiz = quizRef.current
+    if (!quiz?.streamMode) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        await sdkPlayContext(quiz.playlistUri, true)
+
+        /* Warte auf ersten Track im Player-State */
+        let state = null
+        for (let i = 0; i < 20; i++) {
+          await new Promise((r) => setTimeout(r, 500))
+          if (cancelled) return
+          state = await sdkGetPlayerState()
+          if (state?.track_window?.current_track?.id) break
+        }
+
+        if (cancelled) return
+        const sdkTrack = extractTrackFromSdkState(state)
+        if (!sdkTrack) throw new Error('Kein Track in der Playlist verfügbar')
+
+        /* Duplikat-Erkennung */
+        streamSeenIdsRef.current.add(sdkTrack.id)
+
+        /* Jahr vom einzelnen Track-Endpoint holen */
+        sdkTrack.year = await fetchTrackYear(sdkTrack.id)
+
+        quiz.tracks.push(sdkTrack)
+        const q = {
+          index: 0,
+          trackId: sdkTrack.id,
+          preview_url: null,
+          image: sdkTrack.image,
+          question_number: 1,
+        }
+        if (quiz.inputMode === 'choice') {
+          q.choices = generateStreamChoices(sdkTrack, state, quiz.tracks, quiz.guessFields)
+        }
+
+        if (!cancelled) {
+          setCurrentQuestion(q)
+          setStreamPending(false)
+          setLoading(false)
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e.message || 'Playlist konnte nicht gestartet werden')
+          setLoading(false)
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [streamPending, sdkReady])
+
+  /* ── Stream-Mode: Fehler wenn SDK nicht verfügbar ───────── */
+  useEffect(() => {
+    if (!streamPending || !sdkError) return
+    setError(
+      'Spotify Web Playback SDK wird benötigt, um Playlists im Development Mode abzuspielen. ' +
+      'Bitte nutze einen Desktop-Browser mit Spotify Premium, oder wechsle zum Genre-Modus.',
+    )
+    setLoading(false)
+  }, [streamPending, sdkError])
 
   /* ── Config shortcuts ───────────────────────────────────── */
   const inputMode = quizRef.current?.inputMode ?? 'freetext'
@@ -481,27 +665,99 @@ export default function QuizPage() {
   }, [answered, submitting, currentQuestion, fieldInputs])
 
   /* ── Next ───────────────────────────────────────────────── */
+  const loadNextStreamTrack = useCallback(async () => {
+    const quiz = quizRef.current
+    if (!quiz?.streamMode) return
+    setStreamLoading(true)
+    try {
+      const prevTrackId = currentQuestion?.trackId
+      await sdkSkipToNext()
+
+      /* Warte bis der SDK einen neuen Track meldet */
+      let state = null
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 500))
+        state = await sdkGetPlayerState()
+        const newId = state?.track_window?.current_track?.id
+        if (newId && newId !== prevTrackId) break
+      }
+
+      const sdkTrack = extractTrackFromSdkState(state)
+      if (!sdkTrack) throw new Error('Kein weiterer Track verfügbar')
+
+      /* Duplikat → Playlist durchgelaufen → Quiz beenden */
+      if (streamSeenIdsRef.current.has(sdkTrack.id)) {
+        quiz.totalQuestions = quiz.currentIndex
+        const results = {
+          quiz_id: quiz.id,
+          genre: quiz.genre,
+          mode: quiz.mode,
+          guessFields: quiz.guessFields,
+          score: quiz.score,
+          total_questions: quiz.currentIndex,
+          max_score: quiz.currentIndex * Math.round(100 * (quiz.speedBonus ? 2.0 : 1.0)),
+          answers: quiz.answers,
+        }
+        setTotalQuestions(quiz.currentIndex)
+        navigate(`/results/${quizId}`, { state: { results } })
+        return
+      }
+      streamSeenIdsRef.current.add(sdkTrack.id)
+
+      sdkTrack.year = await fetchTrackYear(sdkTrack.id)
+      quiz.tracks.push(sdkTrack)
+
+      const idx = quiz.tracks.length - 1
+      const q = {
+        index: idx,
+        trackId: sdkTrack.id,
+        preview_url: null,
+        image: sdkTrack.image,
+        question_number: idx + 1,
+      }
+      if (quiz.inputMode === 'choice') {
+        q.choices = generateStreamChoices(sdkTrack, state, quiz.tracks, quiz.guessFields)
+      }
+      setCurrentQuestion(q)
+    } catch (e) {
+      setError(e.message || 'Nächster Track konnte nicht geladen werden')
+    } finally {
+      setStreamLoading(false)
+    }
+  }, [currentQuestion, quizId, navigate])
+
   const handleNext = useCallback(() => {
     if (!feedbackResult) return
     if (feedbackResult.finished && feedbackResult.results) {
       navigate(`/results/${quizId}`, { state: { results: feedbackResult.results } })
       return
     }
-    const next = feedbackResult.next_question
-    if (next) setCurrentQuestion(next)
+
     setAnswered(false)
     setFeedbackResult(null)
     setFieldInputs({})
     setRevealed(false)
     setSongPct(0)
+
+    /* Stream-Modus: nächsten Track via SDK laden */
+    if (feedbackResult.next_question?.streamPending) {
+      loadNextStreamTrack()
+      setTimeout(() => firstInputRef.current?.focus(), 100)
+      return
+    }
+
+    const next = feedbackResult.next_question
+    if (next) setCurrentQuestion(next)
     setTimeout(() => firstInputRef.current?.focus(), 100)
-  }, [feedbackResult, quizId, navigate])
+  }, [feedbackResult, quizId, navigate, loadNextStreamTrack])
 
   /* ── Skip ───────────────────────────────────────────────── */
   const handleSkip = useCallback(() => {
     if (answered || submitting || !quizRef.current) return
     clearInterval(timerRef.current)
-    playerRef.current?.stop()
+    if (!quizRef.current.streamMode) {
+      playerRef.current?.stop()
+    }
     const emptyAnswers = {}
     for (const f of quizRef.current.guessFields ?? ['artist', 'title']) emptyAnswers[f] = ''
     const { quiz: updatedQuiz, response: result } = submitQuizAnswer(quizRef.current, emptyAnswers, 999)
@@ -589,10 +845,18 @@ export default function QuizPage() {
   if (loading) return <QuizLoadingScreen />
 
   if (error) {
+    const isAuthError = error.includes('einloggen') || error.includes('Token abgelaufen') || error.includes('authentifiziert')
+    const is403Error = error.includes('403') || error.includes('verweigert')
+    const showRelogin = isAuthError || is403Error
     return (
       <div className="container" style={{ paddingTop: '3rem', textAlign: 'center' }}>
         <div className="error-box" style={{ justifyContent: 'center', marginBottom: '1.5rem' }}><AlertTriangle size={16} /> {error}</div>
-        <Link to="/home" className="btn btn-secondary">Zurück</Link>
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link to="/home" className="btn btn-secondary">Zurück</Link>
+          {showRelogin && (
+            <button className="btn btn-primary" onClick={() => { logout(); }}>Neu einloggen</button>
+          )}
+        </div>
       </div>
     )
   }
@@ -647,6 +911,29 @@ export default function QuizPage() {
       </nav>
 
       <div className="container">
+        {/* SDK Disconnected Banner */}
+        {sdkDisconnected && sdkReady && !isMobile() && (
+          <div className="sdk-reconnect-banner" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
+            background: 'var(--warning-bg, #fff3cd)', color: 'var(--warning-text, #856404)',
+            padding: '0.6rem 1rem', borderRadius: '8px', marginBottom: '0.75rem', fontSize: '0.88rem',
+          }}>
+            <AlertTriangle size={16} />
+            <span>Spotify-Verbindung unterbrochen.</span>
+            <button
+              className="btn btn-primary btn-sm"
+              disabled={sdkReconnecting}
+              onClick={() => {
+                setSdkReconnecting(true)
+                sdkReconnect()
+                  .then(() => setSdkDisconnected(false))
+                  .catch(() => setSdkReconnecting(false))
+              }}
+            >
+              {sdkReconnecting ? 'Verbinde…' : 'Neu verbinden'}
+            </button>
+          </div>
+        )}
         <div className="quiz-header">
           <div className="quiz-progress-info">
             <div className="quiz-progress-label">Frage {questionNumber} von {totalQuestions}</div>
@@ -657,7 +944,16 @@ export default function QuizPage() {
           <div className="quiz-score-badge"><Star size={16} /> {score} Pkt.</div>
         </div>
 
-        <div className="quiz-layout">
+        {streamLoading && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
+            padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.95rem',
+          }}>
+            <span className="spinner spinner-sm" /> Nächster Track wird geladen…
+          </div>
+        )}
+
+        <div className="quiz-layout" style={{ opacity: streamLoading ? 0.3 : 1, pointerEvents: streamLoading ? 'none' : 'auto' }}>
           {/* ── Album Art ──────────────────────────────────── */}
           <div className="album-art-panel">
             <div className="album-art-wrapper">
@@ -789,11 +1085,13 @@ export default function QuizPage() {
         ref={playerRef}
         trackId={trackId}
         previewUrl={previewUrl}
+        durationMs={currentTrack?.duration_ms}
         sdkReady={sdkReady}
         sdkError={sdkError}
         onSkip={handleSkip}
         canSkip={!answered && !submitting}
         onTrackEnd={handleTrackEnd}
+        contextMode={!!quizRef.current?.streamMode}
       />
     </div>
   )

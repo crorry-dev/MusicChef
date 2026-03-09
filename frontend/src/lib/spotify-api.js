@@ -57,7 +57,7 @@ async function spotifyFetch(path, options = {}, retries = MAX_RETRIES) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     const msg = body.error?.message || `Spotify API Fehler (${res.status})`
-    console.error('[Spotify]', res.status, msg, path)
+    console.error(`[Spotify] ${res.status} – ${msg} – "${path}"`, body)
     throw new Error(msg)
   }
 
@@ -67,8 +67,12 @@ async function spotifyFetch(path, options = {}, retries = MAX_RETRIES) {
 /* ── Current User ────────────────────────────────────────────
    Läuft über spotifyFetch → Throttle + Retry greifen.
    ──────────────────────────────────────────────────────────── */
+let cachedUserId = null
+
 export async function fetchCurrentUser() {
-  return spotifyFetch('/me')
+  const user = await spotifyFetch('/me')
+  cachedUserId = user.id
+  return user
 }
 
 /* ── Market (Country) ────────────────────────────────────────
@@ -101,6 +105,7 @@ function extractTrack(track) {
     image: track.album?.images?.[0]?.url ?? null,
     spotify_url: track.external_urls?.spotify ?? '',
     year: Number.isNaN(yearNum) ? null : yearNum,
+    duration_ms: track.duration_ms ?? 30000,
   }
 }
 
@@ -194,10 +199,10 @@ export async function fetchTracksForGenre(searchQuery, count = 30, yearRange = n
 export async function fetchTracksForPlaylist(playlistId, count = 20) {
   const tracks = []
 
-  /* Schritt 1: Haupt-Endpoint (robust, liefert erste ~100 Tracks) */
+  /* Schritt 1: Haupt-Endpoint mit market=from_token (hilft manchmal bei Dev-Mode) */
   let playlistData
   try {
-    playlistData = await spotifyFetch(`/playlists/${playlistId}`)
+    playlistData = await spotifyFetch(`/playlists/${playlistId}?market=from_token`)
   } catch (err) {
     if (err.message.includes('einloggen')) throw err
     if (err.message.includes('Forbidden') || err.message.includes('403')) {
@@ -209,14 +214,19 @@ export async function fetchTracksForPlaylist(playlistId, count = 20) {
   }
 
   const initialItems = playlistData.tracks?.items ?? []
+
   for (const item of initialItems) {
     const t = extractTrack(item.track)
     if (t) tracks.push(t)
   }
 
-  /* Schritt 2: Nur wenn wir mehr Tracks brauchen als der Haupt-Endpoint liefert */
-  if (tracks.length < count && playlistData.tracks?.next) {
+  /* Schritt 2: Sub-Endpoint versuchen wenn nötig */
+  const needMore = tracks.length < count && (playlistData.tracks?.next || tracks.length === 0)
+  let subEndpointForbidden = false
+  if (needMore) {
     let offset = initialItems.length
+
+    /* Versuch A: Sub-Endpoint ohne zusätzliche Parameter */
     while (tracks.length < count && offset < 500) {
       try {
         const result = await spotifyFetch(
@@ -231,13 +241,55 @@ export async function fetchTracksForPlaylist(playlistId, count = 20) {
         offset += 50
         if (items.length < 50) break
       } catch (err) {
-        console.warn('[fetchTracksForPlaylist] Sub-Endpoint fehlgeschlagen, nutze vorhandene Tracks:', err.message)
+        if (err.message.includes('einloggen') || err.message.includes('Token abgelaufen')) throw err
+        if (err.message.includes('Forbidden') || err.message.includes('403')) {
+          subEndpointForbidden = true
+        }
         break
+      }
+    }
+
+    /* Versuch B: Wenn 403, nochmal mit market=from_token probieren */
+    if (subEndpointForbidden && tracks.length === 0) {
+      subEndpointForbidden = false
+      try {
+        const result = await spotifyFetch(
+          `/playlists/${playlistId}/tracks?limit=50&offset=0&market=from_token`
+        )
+        for (const item of result.items ?? []) {
+          const t = extractTrack(item.track)
+          if (t) tracks.push(t)
+        }
+      } catch (err) {
+        if (err.message.includes('einloggen') || err.message.includes('Token abgelaufen')) throw err
+        if (err.message.includes('Forbidden') || err.message.includes('403')) {
+          subEndpointForbidden = true
+        }
       }
     }
   }
 
   if (tracks.length === 0) {
+    if (subEndpointForbidden) {
+      const ownerId = playlistData.owner?.id
+      const ownerName = playlistData.owner?.display_name ?? ownerId
+      const isOwn = cachedUserId && ownerId === cachedUserId
+
+      if (!isOwn && ownerId) {
+        throw new Error(
+          `Diese Playlist gehört „${ownerName}" – du folgst ihr nur. ` +
+          'Im Spotify Development Mode ist der Zugriff auf Tracks fremder Playlists eingeschränkt. ' +
+          'Nutze eine Playlist die du selbst erstellt hast, oder wechsle zum Genre-Modus.'
+        )
+      }
+
+      throw new Error(
+        'Spotify verweigert den Zugriff auf die Tracks dieser Playlist (403). ' +
+        'Prüfe in deinem Spotify Developer Dashboard unter der App-Konfiguration, ' +
+        'ob die nötigen Zugriffsrechte für die Web API aktiviert sind. ' +
+        'Alternativ funktioniert der Genre-Modus.'
+      )
+    }
     throw new Error('Playlist enthält keine abspielbaren Tracks.')
   }
 
@@ -261,6 +313,21 @@ export async function checkPlaylistAccess(playlistId) {
       return { accessible: false, reason: 'auth' }
     }
     return { accessible: false, reason: 'unknown', message: err.message }
+  }
+}
+
+/* ── Track Year (für SDK-Stream-Modus) ────────────────────────
+   Holt das Release-Jahr eines einzelnen Tracks via /tracks/{id}.
+   Dieser Endpoint funktioniert auch im Development Mode.
+   ──────────────────────────────────────────────────────────── */
+export async function fetchTrackYear(trackId) {
+  try {
+    const data = await spotifyFetch(`/tracks/${trackId}`)
+    const rd = data.album?.release_date ?? ''
+    const year = rd ? parseInt(rd.split('-')[0], 10) : NaN
+    return Number.isNaN(year) ? null : year
+  } catch {
+    return null
   }
 }
 

@@ -178,7 +178,35 @@ export async function createQuiz({
   let tracks
 
   if (mode === 'playlist' && playlistId) {
-    tracks = await fetchTracksForPlaylist(playlistId, targetCount * 3)
+    try {
+      tracks = await fetchTracksForPlaylist(playlistId, targetCount * 3)
+    } catch (err) {
+      const is403 = err.message.includes('403') || err.message.includes('Forbidden')
+        || err.message.includes('verweigert') || err.message.includes('keine abspielbaren')
+      if (is403) {
+        /* Playlist-API gesperrt (Spotify Dev Mode) → Stream-Modus via SDK */
+        return {
+          id: crypto.randomUUID(),
+          genre: null,
+          mode: 'playlist',
+          playlistId,
+          playlistUri: `spotify:playlist:${playlistId}`,
+          guessFields: fields,
+          pointsPerField: Math.round(100 / fields.length),
+          inputMode,
+          speedBonus,
+          revealCover,
+          streamMode: true,
+          tracks: [],
+          allChoices: null,
+          currentIndex: 0,
+          answers: [],
+          score: 0,
+          totalQuestions: targetCount,
+        }
+      }
+      throw err
+    }
   } else if (mode === 'random' || genre === 'random') {
     tracks = await fetchRandomTracks(targetCount * 3, yearRange)
   } else {
@@ -305,16 +333,21 @@ export function submitQuizAnswer(quiz, userAnswers = {}, elapsedSeconds = null) 
   }
 
   if (!finished) {
-    const nextTrack = updatedQuiz.tracks[updatedQuiz.currentIndex]
-    response.next_question = {
-      index: updatedQuiz.currentIndex,
-      trackId: nextTrack.id,
-      preview_url: nextTrack.preview_url,
-      image: nextTrack.image,
-      question_number: updatedQuiz.currentIndex + 1,
-    }
-    if (updatedQuiz.allChoices) {
-      response.next_question.choices = updatedQuiz.allChoices[updatedQuiz.currentIndex]
+    if (quiz.streamMode) {
+      /* Stream-Modus: nächster Track wird via SDK geladen */
+      response.next_question = { streamPending: true, question_number: updatedQuiz.currentIndex + 1 }
+    } else {
+      const nextTrack = updatedQuiz.tracks[updatedQuiz.currentIndex]
+      response.next_question = {
+        index: updatedQuiz.currentIndex,
+        trackId: nextTrack.id,
+        preview_url: nextTrack.preview_url,
+        image: nextTrack.image,
+        question_number: updatedQuiz.currentIndex + 1,
+      }
+      if (updatedQuiz.allChoices) {
+        response.next_question.choices = updatedQuiz.allChoices[updatedQuiz.currentIndex]
+      }
     }
   } else {
     response.results = {
@@ -368,4 +401,59 @@ function saveQuizToHistory(quiz) {
 
 export function clearQuizHistory() {
   localStorage.removeItem(HISTORY_KEY)
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Stream-Mode Helpers (SDK-basierte Playlist-Wiedergabe)
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Extrahiere Track-Daten aus dem SDK Player-State.
+ * Das SDK liefert alles außer dem Release-Jahr.
+ */
+export function extractTrackFromSdkState(state) {
+  const t = state?.track_window?.current_track
+  if (!t || !t.id) return null
+  return {
+    id: t.id,
+    title: t.name,
+    artist: t.artists?.[0]?.name ?? 'Unbekannt',
+    all_artists: t.artists?.map((a) => a.name).join(', ') ?? '',
+    album: t.album?.name ?? '',
+    preview_url: null,
+    image: t.album?.images?.[0]?.url ?? null,
+    spotify_url: `https://open.spotify.com/track/${t.id}`,
+    year: null,
+  }
+}
+
+/**
+ * Sammle Distractor-Tracks aus SDK-State (next/previous) + bereits gesehenen Tracks.
+ */
+function collectStreamDistractionPool(sdkState, seenTracks) {
+  const pool = [...seenTracks]
+  const others = [
+    ...(sdkState?.track_window?.next_tracks ?? []),
+    ...(sdkState?.track_window?.previous_tracks ?? []),
+  ]
+  for (const t of others) {
+    if (!t?.id) continue
+    pool.push({
+      id: t.id,
+      title: t.name ?? '',
+      artist: t.artists?.[0]?.name ?? 'Unbekannt',
+      all_artists: t.artists?.map((a) => a.name).join(', ') ?? '',
+      album: t.album?.name ?? '',
+      year: null,
+    })
+  }
+  return pool
+}
+
+/**
+ * Generiere Choices für einen Stream-Track.
+ */
+export function generateStreamChoices(track, sdkState, seenTracks, guessFields) {
+  const pool = collectStreamDistractionPool(sdkState, seenTracks)
+  return generateChoices(track, pool, guessFields)
 }
