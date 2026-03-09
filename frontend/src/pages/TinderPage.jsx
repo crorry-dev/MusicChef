@@ -216,7 +216,7 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
       </button>
       {noDevice ? (
         <div className="td-no-device">
-          <span>Öffne Spotify auf deinem Handy</span>
+          <span>Starte Spotify (<a href="https://open.spotify.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>Web Player</a> oder App)</span>
           <button className="td-retry-btn" onClick={() => { setNoDevice(false); clearMobileDevice() }}>
             Erneut
           </button>

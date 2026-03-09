@@ -330,7 +330,7 @@ const PlayerBar = forwardRef(function PlayerBar(
       )}
       {!pbMode && isMobile() && noDevice && (
         <span className="pb-no-preview" style={{ fontSize: '0.75rem' }}>
-          Öffne Spotify auf deinem Handy
+          Starte Spotify (App oder <a href="https://open.spotify.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>Web Player</a>)
           <button
             className="btn btn-ghost btn-sm"
             style={{ marginLeft: '0.5rem', fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
