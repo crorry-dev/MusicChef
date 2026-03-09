@@ -184,58 +184,61 @@ export async function fetchTracksForGenre(searchQuery, count = 30, yearRange = n
   return prioritizeWithPreview(shuffleArray(deduplicateTracks(allTracks))).slice(0, count)
 }
 
-/* ── Playlist Tracks ──────────────────────────────────────── */
-async function fetchPlaylistTracksPage(playlistId, limit, offset) {
-  const marketParam = buildMarketParam()
-  const baseUrl = `/playlists/${playlistId}/tracks?limit=${limit}&offset=${offset}`
-
-  /* Versuch 1: mit Market-Parameter */
-  if (marketParam) {
-    try {
-      return await spotifyFetch(`${baseUrl}${marketParam}`)
-    } catch (err) {
-      if (!err.message.includes('Forbidden') && !err.message.includes('403')) throw err
-      console.warn('[fetchPlaylistTracksPage] 403 mit market – Retry ohne market')
-    }
-  }
-
-  /* Versuch 2: ohne Market-Parameter */
-  return spotifyFetch(baseUrl)
-}
-
+/* ── Playlist Tracks ──────────────────────────────────────────
+   Strategie: Haupt-Endpoint /playlists/{id} liefert Metadaten +
+   bis zu 100 Tracks und ist in Spotify Development Mode deutlich
+   robuster als der Sub-Endpoint /playlists/{id}/tracks.
+   Nur wenn > 100 Tracks benötigt werden, wird der Sub-Endpoint
+   als Fallback genutzt.
+   ──────────────────────────────────────────────────────────── */
 export async function fetchTracksForPlaylist(playlistId, count = 20) {
   const tracks = []
-  let offset = 0
-  let lastError = null
 
-  while (tracks.length < count && offset < 200) {
-    try {
-      const result = await fetchPlaylistTracksPage(playlistId, 50, offset)
-      const items = result.items ?? []
-      if (items.length === 0) break
+  /* Schritt 1: Haupt-Endpoint (robust, liefert erste ~100 Tracks) */
+  let playlistData
+  try {
+    playlistData = await spotifyFetch(`/playlists/${playlistId}`)
+  } catch (err) {
+    if (err.message.includes('einloggen')) throw err
+    if (err.message.includes('Forbidden') || err.message.includes('403')) {
+      throw new Error(
+        'Kein Zugriff auf diese Playlist – sie ist möglicherweise privat. Bitte wähle eine andere Playlist.'
+      )
+    }
+    throw new Error(`Playlist konnte nicht geladen werden: ${err.message}`)
+  }
 
-      for (const item of items) {
-        const t = extractTrack(item.track)
-        if (t) tracks.push(t)
-      }
+  const initialItems = playlistData.tracks?.items ?? []
+  for (const item of initialItems) {
+    const t = extractTrack(item.track)
+    if (t) tracks.push(t)
+  }
 
-      offset += 50
-      if (items.length < 50) break
-    } catch (err) {
-      console.warn('[fetchTracksForPlaylist]', offset, err.message)
-      lastError = err
-      if (err.message.includes('einloggen')) throw err
-      if (err.message.includes('Forbidden') || err.message.includes('403')) {
-        throw new Error(
-          'Kein Zugriff auf diese Playlist – sie ist möglicherweise privat. Bitte wähle eine andere Playlist.'
+  /* Schritt 2: Nur wenn wir mehr Tracks brauchen als der Haupt-Endpoint liefert */
+  if (tracks.length < count && playlistData.tracks?.next) {
+    let offset = initialItems.length
+    while (tracks.length < count && offset < 500) {
+      try {
+        const result = await spotifyFetch(
+          `/playlists/${playlistId}/tracks?limit=50&offset=${offset}`
         )
+        const items = result.items ?? []
+        if (items.length === 0) break
+        for (const item of items) {
+          const t = extractTrack(item.track)
+          if (t) tracks.push(t)
+        }
+        offset += 50
+        if (items.length < 50) break
+      } catch (err) {
+        console.warn('[fetchTracksForPlaylist] Sub-Endpoint fehlgeschlagen, nutze vorhandene Tracks:', err.message)
+        break
       }
-      break
     }
   }
 
-  if (tracks.length === 0 && lastError) {
-    throw new Error(`Playlist konnte nicht geladen werden: ${lastError.message}`)
+  if (tracks.length === 0) {
+    throw new Error('Playlist enthält keine abspielbaren Tracks.')
   }
 
   return prioritizeWithPreview(shuffleArray(deduplicateTracks(tracks))).slice(0, count)

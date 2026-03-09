@@ -58,6 +58,20 @@ function playlistTracksResponse(tracks) {
   }
 }
 
+/* Haupt-Endpoint /playlists/{id} gibt Metadaten + tracks als verschachteltes Objekt */
+function playlistResponse(tracks, hasMore = false) {
+  return {
+    id: 'test-pl',
+    name: 'Test Playlist',
+    public: true,
+    tracks: {
+      items: tracks.map((t) => ({ track: t })),
+      total: tracks.length,
+      next: hasMore ? 'https://api.spotify.com/v1/playlists/test-pl/tracks?offset=100' : null,
+    },
+  }
+}
+
 beforeEach(() => {
   mockFetch.mockReset()
   localStorageMock.clear()
@@ -69,7 +83,7 @@ beforeEach(() => {
 describe('fetchTracksForPlaylist', () => {
   it('gibt Tracks zurück für zugängliche Playlist', async () => {
     const tracks = [spotifyTrack('t1'), spotifyTrack('t2'), spotifyTrack('t3')]
-    mockFetch.mockReturnValue(jsonResponse(200, playlistTracksResponse(tracks)))
+    mockFetch.mockReturnValue(jsonResponse(200, playlistResponse(tracks)))
 
     const result = await fetchTracksForPlaylist('abc123', 3)
 
@@ -98,16 +112,17 @@ describe('fetchTracksForPlaylist', () => {
     await expect(fetchTracksForPlaylist('abc', 5)).rejects.toThrow('einloggen')
   })
 
-  it('gibt leere Ergebnisse zurück wenn Playlist leer ist', async () => {
-    mockFetch.mockReturnValue(jsonResponse(200, { items: [], total: 0, next: null }))
+  it('wirft Fehler wenn Playlist keine abspielbaren Tracks enthält', async () => {
+    mockFetch.mockReturnValue(jsonResponse(200, playlistResponse([])))
 
-    const result = await fetchTracksForPlaylist('empty-pl', 5)
-    expect(result).toEqual([])
+    await expect(fetchTracksForPlaylist('empty-pl', 5)).rejects.toThrow(
+      'keine abspielbaren Tracks'
+    )
   })
 
   it('akzeptiert maximal count Tracks', async () => {
     const tracks = Array.from({ length: 20 }, (_, i) => spotifyTrack(`t${i}`))
-    mockFetch.mockReturnValue(jsonResponse(200, playlistTracksResponse(tracks)))
+    mockFetch.mockReturnValue(jsonResponse(200, playlistResponse(tracks)))
 
     const result = await fetchTracksForPlaylist('abc', 5)
     expect(result.length).toBe(5)
