@@ -19,6 +19,11 @@ import {
   onStateChange as sdkOnStateChange,
   disconnect as sdkDisconnect,
   isMobile,
+  mobilePlay as connectPlay,
+  mobilePause as connectPause,
+  mobileResume as connectResume,
+  mobileSeek as connectSeekTo,
+  clearMobileDevice,
 } from '../lib/spotify-player'
 import Navbar from '../components/Navbar'
 import GenreIcon from '../components/GenreIcon'
@@ -33,10 +38,11 @@ const PREVIEW_DURATION = 30
 /* ═══════════════════════════════════════════════════════════
    Swipe Card Player (inline, no fixed bar)
    ═══════════════════════════════════════════════════════════ */
-const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkReady }, ref) {
+const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkReady, durationMs }, ref) {
   const audioRef = useRef(null)
   const modeRef = useRef(null)
   const sdkPosRef = useRef({ ms: 0, ts: Date.now(), paused: true })
+  const connectRef = useRef({ startTs: 0, offsetMs: 0, durMs: 30000, paused: true })
   const durRef = useRef(PREVIEW_DURATION)
   const animRef = useRef(null)
 
@@ -45,6 +51,7 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
   const [duration, setDuration] = useState(PREVIEW_DURATION)
   const [seeking, setSeeking] = useState(false)
   const [mode, setMode] = useState(null)
+  const [noDevice, setNoDevice] = useState(false)
 
   function updateMode(m) { modeRef.current = m; setMode(m) }
 
@@ -53,12 +60,20 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
       cancelAnimationFrame(animRef.current)
       setPlaying(false); setCurrentTime(0)
       if (modeRef.current === 'sdk') await sdkPause()
+      if (modeRef.current === 'connect') { await connectPause(); connectRef.current.paused = true }
       const a = audioRef.current
       if (a) { a.pause(); a.currentTime = 0 }
     },
     async toggle() {
       if (modeRef.current === 'sdk') {
         sdkPosRef.current.paused ? await sdkResume() : await sdkPause()
+      } else if (modeRef.current === 'connect') {
+        const c = connectRef.current
+        if (c.paused) {
+          await connectResume(); c.startTs = Date.now(); c.paused = false; setPlaying(true)
+        } else {
+          await connectPause(); c.offsetMs += Date.now() - c.startTs; c.paused = true; setPlaying(false)
+        }
       } else if (modeRef.current === 'audio') {
         const a = audioRef.current
         if (!a) return
@@ -96,6 +111,13 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
         const s = sdkPosRef.current
         const pos = s.paused ? s.ms / 1000 : s.ms / 1000 + (Date.now() - s.ts) / 1000
         setCurrentTime(Math.max(0, pos))
+      } else if (modeRef.current === 'connect') {
+        const c = connectRef.current
+        const elapsed = c.paused ? c.offsetMs : c.offsetMs + (Date.now() - c.startTs)
+        const pos = elapsed / 1000
+        const dur = c.durMs / 1000
+        setCurrentTime(Math.max(0, Math.min(pos, dur)))
+        if (!c.paused && pos >= dur) { c.paused = true; setPlaying(false) }
       } else if (modeRef.current === 'audio') {
         const a = audioRef.current
         if (a) setCurrentTime(a.currentTime)
@@ -113,14 +135,37 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
   useEffect(() => {
     const a = audioRef.current
     setPlaying(false); setCurrentTime(0); durRef.current = PREVIEW_DURATION; setDuration(PREVIEW_DURATION)
+    connectRef.current = { startTs: 0, offsetMs: 0, durMs: 30000, paused: true }
+    setNoDevice(false)
     if (a) { a.pause(); a.removeAttribute('src') }
     updateMode(null)
     if (!trackId && !previewUrl) return
     let cancelled = false
     ;(async () => {
+      /* Desktop: SDK */
       if (sdkReady && trackId && !isMobile()) {
         try { await sdkPlay(trackId); if (!cancelled) { updateMode('sdk'); setPlaying(true) }; return } catch { /* fallback */ }
       }
+
+      /* Mobile: Spotify Connect */
+      if (isMobile() && trackId) {
+        try {
+          await connectPlay(trackId)
+          if (!cancelled) {
+            const dur = (durationMs && durationMs > 0) ? durationMs : 30000
+            connectRef.current = { startTs: Date.now(), offsetMs: 0, durMs: dur, paused: false }
+            durRef.current = dur / 1000
+            setDuration(dur / 1000)
+            updateMode('connect')
+            setPlaying(true)
+          }
+          return
+        } catch (e) {
+          if (e.message === 'NO_DEVICE' && !cancelled) setNoDevice(true)
+        }
+      }
+
+      /* Fallback: Audio-Preview */
       if (previewUrl && a && !cancelled) {
         updateMode('audio')
         a.src = previewUrl
@@ -131,10 +176,18 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
       }
     })()
     return () => { cancelled = true }
-  }, [trackId, previewUrl, sdkReady])
+  }, [trackId, previewUrl, sdkReady, durationMs])
 
   const togglePlay = useCallback(async () => {
     if (modeRef.current === 'sdk') { playing ? await sdkPause() : await sdkResume() }
+    else if (modeRef.current === 'connect') {
+      const c = connectRef.current
+      if (c.paused) {
+        await connectResume(); c.startTs = Date.now(); c.paused = false; setPlaying(true)
+      } else {
+        await connectPause(); c.offsetMs += Date.now() - c.startTs; c.paused = true; setPlaying(false)
+      }
+    }
     else if (modeRef.current === 'audio') {
       const a = audioRef.current; if (!a) return
       if (playing) { a.pause(); setPlaying(false) }
@@ -147,6 +200,7 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
   const handleSeekEnd = useCallback(async (e) => {
     const v = parseFloat(e.target.value)
     if (modeRef.current === 'sdk') { await sdkSeek(v * 1000); sdkPosRef.current = { ...sdkPosRef.current, ms: v * 1000, ts: Date.now() } }
+    else if (modeRef.current === 'connect') { await connectSeekTo(v * 1000); connectRef.current.offsetMs = v * 1000; connectRef.current.startTs = Date.now() }
     else if (modeRef.current === 'audio') { const a = audioRef.current; if (a) a.currentTime = v }
     setSeeking(false)
   }, [])
@@ -157,17 +211,28 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
   return (
     <div className="td-card-player">
       <audio ref={audioRef} preload="auto" playsInline style={{ display: 'none' }} />
-      <button className="td-play-btn" onClick={togglePlay} disabled={!mode} aria-label={playing ? 'Pause' : 'Abspielen'}>
+      <button className="td-play-btn" onClick={togglePlay} disabled={!mode && !noDevice} aria-label={playing ? 'Pause' : 'Abspielen'}>
         {playing ? <Pause size={20} /> : <Play size={20} />}
       </button>
-      <span className="td-player-time">{fmt(currentTime)}</span>
-      <div className="td-seek-wrap">
-        <div className="td-seek-track"><div className="td-seek-fill" style={{ width: `${pct}%` }} /></div>
-        <input className="td-seek-input" type="range" min={0} max={duration} step={0.1} value={currentTime}
-          onPointerDown={handleSeekStart} onInput={handleSeekChange} onChange={handleSeekChange} onPointerUp={handleSeekEnd}
-          disabled={!mode} aria-label="Seek" />
-      </div>
-      <span className="td-player-time">{fmt(duration)}</span>
+      {noDevice ? (
+        <div className="td-no-device">
+          <span>Öffne Spotify auf deinem Handy</span>
+          <button className="td-retry-btn" onClick={() => { setNoDevice(false); clearMobileDevice() }}>
+            Erneut
+          </button>
+        </div>
+      ) : (
+        <>
+          <span className="td-player-time">{fmt(currentTime)}</span>
+          <div className="td-seek-wrap">
+            <div className="td-seek-track"><div className="td-seek-fill" style={{ width: `${pct}%` }} /></div>
+            <input className="td-seek-input" type="range" min={0} max={duration} step={0.1} value={currentTime}
+              onPointerDown={handleSeekStart} onInput={handleSeekChange} onChange={handleSeekChange} onPointerUp={handleSeekEnd}
+              disabled={!mode} aria-label="Seek" />
+          </div>
+          <span className="td-player-time">{fmt(duration)}</span>
+        </>
+      )}
     </div>
   )
 })
@@ -339,6 +404,7 @@ function SwipeCard({ track, playerRef, sdkReady, onLike, onSkip, swipeDir }) {
         trackId={track.id}
         previewUrl={track.preview_url}
         sdkReady={sdkReady}
+        durationMs={track.duration_ms}
       />
     </div>
   )

@@ -234,6 +234,19 @@ async function findDevice() {
   })
   if (!res.ok) return null
   const { devices } = await res.json()
+
+  /* Auf dem Handy: bevorzuge Smartphone-Gerät (Mac könnte sonst als
+     "active" gewählt werden, wenn Spotify Desktop dort offen ist) */
+  if (isMobileBrowser()) {
+    return (
+      devices.find((d) => d.type === 'Smartphone' && d.is_active)
+      || devices.find((d) => d.type === 'Smartphone')
+      || devices.find((d) => d.is_active)
+      || devices[0]
+      || null
+    )
+  }
+
   return (
     devices.find((d) => d.is_active)
     || devices.find((d) => d.type === 'Smartphone')

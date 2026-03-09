@@ -966,6 +966,13 @@ p {
   pointer-events: none;
 }
 
+@media (max-width: 480px) {
+  .start-bar {
+    bottom: 3.5rem;
+    padding-bottom: 0.5rem;
+  }
+}
+
 .start-bar .btn-start {
   pointer-events: auto;
   width: 100%;
@@ -1600,7 +1607,7 @@ p {
 @media (max-width: 480px) {
   .player-bar {
     gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
   }
   .pb-time { display: none; }
 }
@@ -2661,10 +2668,12 @@ p {
     right: 0;
     z-index: 500;
     justify-content: center;
-    background: var(--bg);
+    background: rgba(10, 10, 15, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border-top: 1px solid var(--border);
     border-radius: 0;
-    padding: 0.4rem 0.5rem;
+    padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
     gap: 0;
   }
   .sp-navbar-center .sp-nav-link {
@@ -2672,13 +2681,18 @@ p {
     flex-direction: column;
     gap: 0.15rem;
     font-size: 0.7rem;
-    padding: 0.35rem 0;
+    padding: 0.45rem 0;
+    min-height: 44px;
     border-radius: 8px;
     justify-content: center;
   }
   /* Platz für die fixierte Bottom-Nav */
   body {
-    padding-bottom: 3.5rem;
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  }
+  /* Quiz hat eigene Player-Bar am Bottom, braucht keinen Bottom-Nav-Platz */
+  .quiz-page {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
   }
   .landing-features {
     grid-template-columns: 1fr;
@@ -3062,6 +3076,18 @@ p {
 .td-play-btn:hover { background: var(--accent-hover); transform: scale(1.08); }
 .td-play-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
+/* Mobile: pulse the play button to indicate interaction needed */
+@media (max-width: 480px) {
+  .td-play-btn:not(:disabled) {
+    animation: td-pulse 2s ease-in-out 1s 2;
+  }
+}
+
+@keyframes td-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(29, 185, 84, 0); }
+  50% { box-shadow: 0 0 0 8px rgba(29, 185, 84, 0.25); }
+}
+
 .td-player-time {
   font-size: 0.7rem;
   color: var(--text-muted);
@@ -3294,5 +3320,117 @@ p {
   }
   .td-actions {
     gap: 2rem;
+  }
+}
+
+/* ── No Device Banner (Tinder) ─────────────────────────────── */
+.td-no-device {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--warning);
+}
+
+.td-retry-btn {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  white-space: nowrap;
+}
+
+.td-retry-btn:hover {
+  background: var(--surface3);
+  color: var(--text);
+}
+
+/* ============================================================
+   Donate Card (Results Page)
+   ============================================================ */
+.donate-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.donate-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-bright);
+  margin-bottom: 0.5rem;
+}
+
+.donate-text {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 1rem;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.donate-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.donate-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+  cursor: pointer;
+}
+
+.donate-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.donate-chip-free {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.donate-chip-free:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (max-width: 480px) {
+  .donate-card {
+    padding: 1rem;
+  }
+  .donate-chip {
+    padding: 0.45rem 0.8rem;
+    font-size: 0.78rem;
   }
 }

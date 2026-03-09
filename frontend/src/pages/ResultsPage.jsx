@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams, useLocation, Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import {
   MusicNote, Music, Trophy, Star, BookOpen, RefreshCw, BarChart,
-  Check, X as XIcon,
+  Check, X as XIcon, Coffee, Heart, ExternalLink,
 } from '../lib/icons'
 
 const CONFETTI_COLORS = ['#1DB954', '#5af791', '#ff6b9d', '#ffd93d', '#6bceff', '#ffffff']
@@ -75,6 +76,7 @@ export default function ResultsPage() {
   const { quizId } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
 
   // Backend sends: {quiz_id, genre, mode, score, total_questions, max_score, answers: [{track, user_artist, user_title, artist_correct, title_correct, points}]}
   const results = location.state?.results
@@ -118,15 +120,7 @@ export default function ResultsPage() {
   return (
     <div className="results-page">
       <Confetti show={showConfetti} />
-
-      <nav className="sp-navbar">
-        <div className="sp-navbar-inner">
-          <Link to="/home" className="sp-nav-brand">
-            <div className="sp-nav-logo"><MusicNote size={20} /></div>
-            <span className="sp-nav-title">MusicChef</span>
-          </Link>
-        </div>
-      </nav>
+      <Navbar user={user} onLogout={logout} />
 
       <div className="container">
         <div className="results-header">
@@ -226,6 +220,34 @@ export default function ResultsPage() {
             </div>
           </>
         )}
+
+        <div style={{ height: '2rem' }} />
+
+        {/* ── Dezenter Spenden-Hinweis ───────────────────── */}
+        <div className="donate-card">
+          <div className="donate-header">
+            <Coffee size={18} />
+            <span>MusicChef unterstützen</span>
+          </div>
+          <p className="donate-text">
+            MusicChef ist kostenlos, aber der Betrieb kostet Geld.
+            Mit einer kleinen Spende hilfst du, das Projekt am Leben zu halten.
+          </p>
+          <div className="donate-options">
+            <a href="https://paypal.me/tobcro/1" target="_blank" rel="noopener noreferrer" className="donate-chip">
+              <Coffee size={14} /> 1 € Kaffee
+            </a>
+            <a href="https://paypal.me/tobcro/3" target="_blank" rel="noopener noreferrer" className="donate-chip">
+              <Heart size={14} /> 3 € Snack
+            </a>
+            <a href="https://paypal.me/tobcro/5" target="_blank" rel="noopener noreferrer" className="donate-chip">
+              <Star size={14} /> 5 € Supporter
+            </a>
+            <a href="https://paypal.me/tobcro" target="_blank" rel="noopener noreferrer" className="donate-chip donate-chip-free">
+              Freier Betrag <ExternalLink size={12} />
+            </a>
+          </div>
+        </div>
 
         <div style={{ height: '2rem' }} />
       </div>
