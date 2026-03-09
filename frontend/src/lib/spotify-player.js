@@ -207,12 +207,17 @@ export async function getPlayerState() {
 
 /* ── Aufräumen ─────────────────────────────────────────────── */
 export async function disconnect() {
+  try { await player?.pause() } catch { /* silent */ }
   try { player?.disconnect() } catch { /* silent */ }
   player = null
   deviceId = null
   initPromise = null
   stateListeners.clear()
   connectionListeners.clear()
+  /* Mobile Connect ebenfalls pausieren */
+  if (mobileDevice) {
+    mobilePause().catch(() => {})
+  }
 }
 
 export function isConnected() {

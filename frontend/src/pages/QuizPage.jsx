@@ -33,7 +33,7 @@ import Navbar from '../components/Navbar'
 import GenreIcon from '../components/GenreIcon'
 import {
   MusicNote, Music, Mic, Calendar, Timer, Star, Lock, Check, XCircle,
-  CheckCircle, Trophy, AlertTriangle, Play, Pause, SkipForward, X,
+  CheckCircle, Trophy, AlertTriangle, Play, Pause, SkipForward, X, Info,
 } from '../lib/icons'
 
 const PREVIEW_DURATION = 30
@@ -426,7 +426,7 @@ function ChoiceField({ field, options, selectedValue, onSelect, correctValue, an
           }
           return (
             <button
-              key={opt}
+              key={`${field}-${idx}`}
               className={cls}
               onClick={() => !answered && onSelect(field, opt)}
               disabled={answered}
@@ -484,6 +484,7 @@ export default function QuizPage() {
   const [sdkReconnecting, setSdkReconnecting] = useState(false)
   const [streamPending, setStreamPending] = useState(false)
   const [streamLoading, setStreamLoading] = useState(false)
+  const [trackCountWarning, setTrackCountWarning] = useState(null)
   const streamSeenIdsRef = useRef(new Set())
 
   useEffect(() => {
@@ -536,6 +537,7 @@ export default function QuizPage() {
         quizRef.current = quiz
         setQuizId(quiz.id)
         setTotalQuestions(quiz.totalQuestions)
+        if (quiz.trackCountWarning) setTrackCountWarning(quiz.trackCountWarning)
 
         if (quiz.streamMode) {
           /* Stream-Modus: warte auf SDK bevor erste Frage geladen wird */
@@ -905,7 +907,7 @@ export default function QuizPage() {
                 <Timer size={14} /> {elapsed}s
               </div>
             )}
-            <Link to="/home" className="btn btn-ghost btn-sm"><X size={16} /> Beenden</Link>
+            <button className="btn btn-ghost btn-sm" onClick={() => { playerRef.current?.stop(); sdkDisconnect(); navigate('/home') }}><X size={16} /> Beenden</button>
           </div>
         </div>
       </nav>
@@ -943,6 +945,16 @@ export default function QuizPage() {
           </div>
           <div className="quiz-score-badge"><Star size={16} /> {score} Pkt.</div>
         </div>
+
+        {trackCountWarning && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem',
+            background: 'var(--warning-bg, #fff3cd)', color: 'var(--warning-text, #856404)',
+            padding: '0.5rem 0.75rem', borderRadius: '8px', marginBottom: '0.75rem', fontSize: '0.82rem',
+          }}>
+            <Info size={14} /> {trackCountWarning}
+          </div>
+        )}
 
         {streamLoading && (
           <div style={{

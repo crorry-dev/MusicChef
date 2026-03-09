@@ -57,7 +57,11 @@ async function spotifyFetch(path, options = {}, retries = MAX_RETRIES) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     const msg = body.error?.message || `Spotify API Fehler (${res.status})`
-    console.error(`[Spotify] ${res.status} – ${msg} – "${path}"`, body)
+    if (res.status === 403) {
+      console.warn(`[Spotify] ${res.status} – ${msg} – "${path}"`)
+    } else {
+      console.error(`[Spotify] ${res.status} – ${msg} – "${path}"`, body)
+    }
     throw new Error(msg)
   }
 

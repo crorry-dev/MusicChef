@@ -145,9 +145,16 @@ export function generateChoices(track, allTracks, guessFields) {
       continue
     }
 
-    /* Ensure we have exactly 3 distractors – pad with generic if needed */
+    /* Ensure we have exactly 3 distractors – pad with unique fallbacks */
     while (distractors.length < 3) {
-      distractors.push(field === 'year' ? '2015' : '???')
+      const fallback = field === 'year'
+        ? String(1990 + distractors.length * 7)
+        : `Option ${distractors.length + 1}`
+      if (!distractors.includes(fallback) && normalize(fallback) !== normalize(correct)) {
+        distractors.push(fallback)
+      } else {
+        distractors.push(field === 'year' ? String(2000 + distractors.length) : `Option ${distractors.length + 2}`)
+      }
     }
 
     choices[field] = shuffleArray([correct, ...distractors])
@@ -226,6 +233,10 @@ export async function createQuiz({
     throw new Error('Keine Tracks für diese Auswahl gefunden.')
   }
 
+  const trackCountWarning = selected.length < targetCount
+    ? `Nur ${selected.length} von ${targetCount} gewünschten Tracks verfügbar.`
+    : null
+
   const pointsPerField = Math.round(100 / fields.length)
 
   /* Pre-generate choices for every track when in choice mode */
@@ -244,6 +255,8 @@ export async function createQuiz({
     inputMode,
     speedBonus,
     revealCover,
+    streamMode: false,
+    trackCountWarning,
     tracks: selected,
     allChoices,
     currentIndex: 0,
