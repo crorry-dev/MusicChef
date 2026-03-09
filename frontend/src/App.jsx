@@ -19,9 +19,21 @@ function SpinnerFull() {
 }
 
 function ProtectedRoute({ children }) {
-  const { isAuthenticated, isLoading, hasClientId } = useAuth()
+  const { isAuthenticated, isLoading, hasClientId, authError, login, logout } = useAuth()
   if (isLoading) return <SpinnerFull />
   if (!hasClientId) return <Navigate to="/setup" replace />
+  if (!isAuthenticated && authError) {
+    return (
+      <div className="container" style={{ paddingTop: '3rem', textAlign: 'center' }}>
+        <div className="error-box" style={{ justifyContent: 'center', marginBottom: '1.5rem' }}>
+          {authError}
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button className="btn btn-primary" onClick={login}>Neu einloggen</button>
+        </div>
+      </div>
+    )
+  }
   return isAuthenticated ? children : <Navigate to="/" replace />
 }
 

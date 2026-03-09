@@ -1,4 +1,4 @@
-import { getValidToken } from './spotify-pkce'
+import { getValidToken, refreshAccessToken } from './spotify-pkce'
 
 const SPOTIFY_API = 'https://api.spotify.com/v1'
 
@@ -26,6 +26,11 @@ async function throttle() {
 /* ── Core Fetch mit Retry + exponentiellem Backoff ───────── */
 const MAX_RETRIES = 3
 
+function isAuthError(err) {
+  const m = err?.message ?? ''
+  return m.includes('einloggen') || m.includes('abgelaufen') || m.includes('Sitzung') || m.includes('authentifiziert')
+}
+
 async function spotifyFetch(path, options = {}, retries = MAX_RETRIES) {
   await throttle()
 
@@ -50,8 +55,17 @@ async function spotifyFetch(path, options = {}, retries = MAX_RETRIES) {
     return spotifyFetch(path, options, retries - 1)
   }
 
+  if (res.status === 401 && retries > 0) {
+    try {
+      await refreshAccessToken()
+      return spotifyFetch(path, options, retries - 1)
+    } catch {
+      throw new Error('Sitzung abgelaufen – bitte melde dich neu an')
+    }
+  }
+
   if (res.status === 401) {
-    throw new Error('Token abgelaufen – bitte neu einloggen')
+    throw new Error('Sitzung abgelaufen – bitte melde dich neu an')
   }
 
   if (!res.ok) {
@@ -182,7 +196,7 @@ export async function fetchTracksForGenre(searchQuery, count = 30, yearRange = n
     } catch (err) {
       console.warn('[fetchTracksForGenre]', offset, err.message)
       lastError = err
-      if (err.message.includes('einloggen')) throw err
+      if (isAuthError(err)) throw err
     }
   }
 
@@ -208,7 +222,7 @@ export async function fetchTracksForPlaylist(playlistId, count = 20) {
   try {
     playlistData = await spotifyFetch(`/playlists/${playlistId}?market=from_token`)
   } catch (err) {
-    if (err.message.includes('einloggen')) throw err
+    if (isAuthError(err)) throw err
     if (err.message.includes('Forbidden') || err.message.includes('403')) {
       throw new Error(
         'Kein Zugriff auf diese Playlist – sie ist möglicherweise privat. Bitte wähle eine andere Playlist.'
@@ -245,7 +259,7 @@ export async function fetchTracksForPlaylist(playlistId, count = 20) {
         offset += 50
         if (items.length < 50) break
       } catch (err) {
-        if (err.message.includes('einloggen') || err.message.includes('Token abgelaufen')) throw err
+        if (isAuthError(err)) throw err
         if (err.message.includes('Forbidden') || err.message.includes('403')) {
           subEndpointForbidden = true
         }
@@ -265,7 +279,7 @@ export async function fetchTracksForPlaylist(playlistId, count = 20) {
           if (t) tracks.push(t)
         }
       } catch (err) {
-        if (err.message.includes('einloggen') || err.message.includes('Token abgelaufen')) throw err
+        if (isAuthError(err)) throw err
         if (err.message.includes('Forbidden') || err.message.includes('403')) {
           subEndpointForbidden = true
         }
@@ -313,7 +327,7 @@ export async function checkPlaylistAccess(playlistId) {
     if (err.message.includes('Forbidden') || err.message.includes('403')) {
       return { accessible: false, reason: 'private' }
     }
-    if (err.message.includes('einloggen') || err.message.includes('401')) {
+    if (isAuthError(err)) {
       return { accessible: false, reason: 'auth' }
     }
     return { accessible: false, reason: 'unknown', message: err.message }
@@ -360,7 +374,7 @@ export async function fetchRandomTracks(count = 20, yearRange = null) {
     } catch (err) {
       console.warn('[fetchRandomTracks]', q, err.message)
       lastError = err
-      if (err.message.includes('einloggen')) throw err
+      if (isAuthError(err)) throw err
     }
   }
 
@@ -473,7 +487,7 @@ export async function fetchDiscoverTracks(searchQuery = null, count = 20, yearRa
       }
       if ((result.tracks?.items?.length ?? 0) < 10) break
     } catch (err) {
-      if (err.message.includes('einloggen')) throw err
+      if (isAuthError(err)) throw err
     }
   }
 

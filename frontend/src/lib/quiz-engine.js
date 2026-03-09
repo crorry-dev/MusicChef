@@ -80,6 +80,23 @@ export function getSpeedTier(elapsedSeconds) {
 /* ═══════════════════════════════════════════════════════════
    Multiple-Choice Generation
    ═══════════════════════════════════════════════════════════ */
+
+const FALLBACK_ARTISTS = [
+  'Ed Sheeran', 'Adele', 'Drake', 'Billie Eilish', 'The Weeknd',
+  'Dua Lipa', 'Post Malone', 'Ariana Grande', 'Bruno Mars', 'Rihanna',
+  'Eminem', 'Coldplay', 'Imagine Dragons', 'Sia', 'Kendrick Lamar',
+  'Taylor Swift', 'Justin Bieber', 'Lady Gaga', 'Beyoncé', 'Shakira',
+  'Cro', 'Apache 207', 'Capital Bra', 'Mark Forster', 'Udo Lindenberg',
+]
+
+const FALLBACK_TITLES = [
+  'Blinding Lights', 'Someone Like You', 'Shape of You', 'Bad Guy',
+  'Levitating', 'Watermelon Sugar', 'Stay', 'Peaches', 'Dynamite',
+  'Bohemian Rhapsody', 'Rolling in the Deep', 'Havana', 'Señorita',
+  'Circles', 'Dance Monkey', 'Uptown Funk', 'Old Town Road', 'Rockstar',
+  'Roller', 'Traum', 'Keine Maschine', 'Kein Bock', 'Stoff',
+]
+
 function shuffleArray(arr) {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
@@ -145,15 +162,17 @@ export function generateChoices(track, allTracks, guessFields) {
       continue
     }
 
-    /* Ensure we have exactly 3 distractors – pad with unique fallbacks */
-    while (distractors.length < 3) {
-      const fallback = field === 'year'
-        ? String(1990 + distractors.length * 7)
-        : `Option ${distractors.length + 1}`
-      if (!distractors.includes(fallback) && normalize(fallback) !== normalize(correct)) {
-        distractors.push(fallback)
-      } else {
-        distractors.push(field === 'year' ? String(2000 + distractors.length) : `Option ${distractors.length + 2}`)
+    /* Ensure we have exactly 3 distractors – pad with believable fallbacks */
+    if (distractors.length < 3) {
+      const fallbackPool = field === 'artist' ? FALLBACK_ARTISTS
+        : field === 'title' ? FALLBACK_TITLES : []
+      const normUsed = new Set([normalize(correct), ...distractors.map(normalize)])
+      for (const fb of shuffleArray(fallbackPool)) {
+        if (distractors.length >= 3) break
+        if (!normUsed.has(normalize(fb))) {
+          distractors.push(fb)
+          normUsed.add(normalize(fb))
+        }
       }
     }
 
@@ -183,6 +202,7 @@ export async function createQuiz({
       : DEFAULT_GUESS_FIELDS
   const targetCount = Math.min(count, 1000)
   let tracks
+  let extraDistractorTracks = []
 
   if (mode === 'playlist' && playlistId) {
     try {
@@ -239,10 +259,25 @@ export async function createQuiz({
 
   const pointsPerField = Math.round(100 / fields.length)
 
+  /* Ensure enough variety for choice mode distractors */
+  if (inputMode === 'choice') {
+    const uniqueArtists = new Set(tracks.map((t) => t.artist))
+    const uniqueTitles = new Set(tracks.map((t) => t.title))
+    if (uniqueArtists.size < 6 || uniqueTitles.size < 6) {
+      try {
+        extraDistractorTracks = await fetchRandomTracks(30)
+      } catch { /* best-effort */ }
+    }
+  }
+
+  const distractorPool = extraDistractorTracks.length > 0
+    ? [...tracks, ...extraDistractorTracks]
+    : tracks
+
   /* Pre-generate choices for every track when in choice mode */
   const allChoices =
     inputMode === 'choice'
-      ? selected.map((t) => generateChoices(t, tracks, fields))
+      ? selected.map((t) => generateChoices(t, distractorPool, fields))
       : null
 
   return {

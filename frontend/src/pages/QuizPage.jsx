@@ -847,7 +847,7 @@ export default function QuizPage() {
   if (loading) return <QuizLoadingScreen />
 
   if (error) {
-    const isAuthError = error.includes('einloggen') || error.includes('Token abgelaufen') || error.includes('authentifiziert')
+    const isAuthError = error.includes('einloggen') || error.includes('abgelaufen') || error.includes('authentifiziert') || error.includes('Sitzung')
     const is403Error = error.includes('403') || error.includes('verweigert')
     const showRelogin = isAuthError || is403Error
     return (

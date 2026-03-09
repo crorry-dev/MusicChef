@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import {
   getClientId,
   setClientId as saveClientId,
@@ -15,6 +15,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [hasClientId, setHasClientId] = useState(Boolean(getClientId()))
+  const [authError, setAuthError] = useState(null)
+  const tokenCheckRef = useRef(null)
 
   useEffect(() => {
     if (!hasClientId) {
@@ -26,6 +28,7 @@ export function AuthProvider({ children }) {
       const token = await getValidToken()
       if (!token) {
         setUser(null)
+        setAuthError('Sitzung abgelaufen – bitte melde dich neu an')
         setIsLoading(false)
         return
       }
@@ -33,6 +36,7 @@ export function AuthProvider({ children }) {
       try {
         const data = await fetchCurrentUser()
         if (data.country) setMarket(data.country)
+        setAuthError(null)
         setUser({
           id: data.id,
           display_name: data.display_name || data.id,
@@ -40,15 +44,26 @@ export function AuthProvider({ children }) {
           image: data.images?.[0]?.url || null,
           country: data.country || null,
         })
-      } catch {
+      } catch (err) {
         clearToken()
         setUser(null)
+        setAuthError(err.message || 'Authentifizierung fehlgeschlagen')
       } finally {
         setIsLoading(false)
       }
     }
 
     checkAuth()
+
+    tokenCheckRef.current = setInterval(async () => {
+      const token = await getValidToken()
+      if (!token && user) {
+        setUser(null)
+        setAuthError('Sitzung abgelaufen – bitte melde dich neu an')
+      }
+    }, 5 * 60 * 1000)
+
+    return () => clearInterval(tokenCheckRef.current)
   }, [hasClientId])
 
   const login = useCallback(() => {
@@ -58,6 +73,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     clearToken()
     setUser(null)
+    setAuthError(null)
   }, [])
 
   const updateClientId = useCallback((id) => {
@@ -77,6 +93,7 @@ export function AuthProvider({ children }) {
     isLoading,
     isAuthenticated: Boolean(user),
     hasClientId,
+    authError,
     login,
     logout,
     updateClientId,

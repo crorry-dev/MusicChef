@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 /* ── Mocks ───────────────────────────────────────────────── */
 vi.mock('../src/lib/spotify-pkce', () => ({
   getValidToken: vi.fn(() => Promise.resolve('fake-token')),
+  refreshAccessToken: vi.fn(() => Promise.reject(new Error('No refresh token'))),
 }))
 
 /* localStorage-Mock (Node 22+ hat ein experimentelles localStorage ohne clear()) */
@@ -109,7 +110,7 @@ describe('fetchTracksForPlaylist', () => {
       jsonResponse(401, { error: { status: 401, message: 'Token abgelaufen' } })
     )
 
-    await expect(fetchTracksForPlaylist('abc', 5)).rejects.toThrow('einloggen')
+    await expect(fetchTracksForPlaylist('abc', 5)).rejects.toThrow('abgelaufen')
   })
 
   it('wirft Fehler wenn Playlist keine abspielbaren Tracks enthält', async () => {
