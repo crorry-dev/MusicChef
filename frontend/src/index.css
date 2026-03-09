@@ -615,12 +615,9 @@ p {
   background: var(--accent-dim);
 }
 
-.playlist-card.playlist-foreign {
-  opacity: 0.55;
-}
-
-.playlist-card.playlist-foreign:hover {
-  opacity: 0.8;
+.playlist-owner {
+  opacity: 0.65;
+  font-style: italic;
 }
 
 .playlist-img {
@@ -978,6 +975,29 @@ p {
   white-space: normal;
   text-align: center;
   line-height: 1.35;
+}
+
+.start-error {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--radius-sm);
+  background: #3b1818;
+  color: #f87171;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* ── HomePage Mobile ──────────────────────────────────────── */

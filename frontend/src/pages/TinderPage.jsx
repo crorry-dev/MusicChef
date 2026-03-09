@@ -81,8 +81,10 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
     const a = audioRef.current
     if (!a) return
     const onMeta = () => { if (modeRef.current === 'audio' && a.duration && isFinite(a.duration)) { durRef.current = a.duration; setDuration(a.duration) } }
+    const onEnded = () => { if (modeRef.current === 'audio') setPlaying(false) }
     a.addEventListener('loadedmetadata', onMeta)
-    return () => { a.removeEventListener('loadedmetadata', onMeta) }
+    a.addEventListener('ended', onEnded)
+    return () => { a.removeEventListener('loadedmetadata', onMeta); a.removeEventListener('ended', onEnded) }
   }, [])
 
   /* Position ticker */
@@ -117,8 +119,8 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
       if (previewUrl && a && !cancelled) {
         updateMode('audio')
         a.src = previewUrl
+        a.load()
         if (!isMobile()) {
-          a.load()
           a.play().then(() => { if (!cancelled) setPlaying(true) }).catch(() => {})
         }
       }

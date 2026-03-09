@@ -150,7 +150,7 @@ const PlayerBar = forwardRef(function PlayerBar(
     if (!a) return
     const onMeta = () => { if (pbModeRef.current === 'audio' && a.duration && isFinite(a.duration)) { durRef.current = a.duration; setDuration(a.duration) } }
     const onCanPlay = () => {
-      if (pbModeRef.current === 'audio' && !autoPlayedRef.current) {
+      if (pbModeRef.current === 'audio' && !autoPlayedRef.current && !isMobile()) {
         autoPlayedRef.current = true
         a.play().then(() => setPlaying(true)).catch(() => {
           setPlaying(false)
@@ -199,9 +199,7 @@ const PlayerBar = forwardRef(function PlayerBar(
       if (previewUrl && a && !cancelled) {
         setMode('audio')
         a.src = previewUrl
-        if (!isMobile()) {
-          a.load()
-        }
+        a.load()
       }
     })()
     return () => { cancelled = true }

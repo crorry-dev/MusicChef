@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getGenresList, getRegionsList } from '../lib/genres'
-import { fetchUserPlaylists, getCachedPlaylists } from '../lib/spotify-api'
+import { fetchUserPlaylists, getCachedPlaylists, checkPlaylistAccess } from '../lib/spotify-api'
 import Navbar from '../components/Navbar'
 import GenreIcon from '../components/GenreIcon'
 import {
   Mic, Music, Calendar, Edit3, Circle, Zap, Image, CheckCircle,
-  Gamepad2, Shuffle, Settings, ListMusic, Search,
+  Gamepad2, Shuffle, Settings, ListMusic, Search, AlertTriangle, Loader,
 } from '../lib/icons'
 
 /* ── Quick Presets ─────────────────────────────────────────── */
@@ -27,6 +27,9 @@ export default function HomePage() {
   const [tab, setTab] = useState('genre')
   const [regionFilter, setRegionFilter] = useState('all')
   const [genreSearch, setGenreSearch] = useState('')
+  const [playlistSearch, setPlaylistSearch] = useState('')
+  const [startingQuiz, setStartingQuiz] = useState(false)
+  const [startError, setStartError] = useState(null)
 
   /* ── Quiz settings ────────────────────────────────────────── */
   const [count, setCount] = useState(10)
@@ -50,10 +53,15 @@ export default function HomePage() {
     )
   }, [regionFilter, genreSearch])
 
-  const ownedPlaylists = useMemo(() => {
-    if (!user?.id) return playlists
-    return playlists.filter((pl) => !pl.ownerId || pl.ownerId === user.id)
-  }, [playlists, user])
+  const filteredPlaylists = useMemo(() => {
+    if (!playlistSearch.trim()) return playlists
+    const q = playlistSearch.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    return playlists.filter((pl) =>
+      pl.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)
+      || (pl.ownerName && pl.ownerName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q))
+    )
+  }, [playlists, playlistSearch])
+
 
   const loadPlaylists = useCallback(() => {
     setLoadingPlaylists(true)
@@ -90,10 +98,12 @@ export default function HomePage() {
   const handleGenreSelect = useCallback((genre) => {
     setSelectedGenre((prev) => (prev?.id === genre.id ? null : genre))
     setSelectedPlaylist(null)
+    setStartError(null)
   }, [])
 
   const handlePlaylistSelect = useCallback((pl) => {
     setSelectedPlaylist((prev) => (prev?.id === pl.id ? null : pl))
+    setStartError(null)
     setSelectedGenre(null)
     if (pl.tracks && pl.tracks > 0) {
       setCount(Math.min(pl.tracks, 1000))
@@ -116,8 +126,9 @@ export default function HomePage() {
     return count
   }, [useAllTracks, selectedPlaylist, count])
 
-  const handleStartQuiz = useCallback(() => {
+  const handleStartQuiz = useCallback(async () => {
     if (!selectedGenre && !selectedPlaylist) return
+    setStartError(null)
 
     const state = {
       count: effectiveCount,
@@ -131,6 +142,21 @@ export default function HomePage() {
       state.mode = 'playlist'
       state.playlist_id = selectedPlaylist.id
       state.genre = null
+
+      setStartingQuiz(true)
+      const access = await checkPlaylistAccess(selectedPlaylist.id)
+      if (!access.accessible) {
+        setStartingQuiz(false)
+        if (access.reason === 'private') {
+          setStartError(`„${selectedPlaylist.name}" ist nicht zugänglich – die Playlist ist privat oder wurde entfernt.`)
+        } else if (access.reason === 'auth') {
+          setStartError('Deine Sitzung ist abgelaufen – bitte melde dich erneut an.')
+        } else {
+          setStartError(access.message || 'Playlist konnte nicht geladen werden.')
+        }
+        return
+      }
+      setStartingQuiz(false)
     } else if (selectedGenre?.id === '__random__') {
       state.mode = 'random'
       state.genre = null
@@ -260,6 +286,30 @@ export default function HomePage() {
 
         {/* ── Playlist Grid ─────────────────────────────────── */}
         {tab === 'playlist' && (
+          <>
+            {!loadingPlaylists && playlists.length > 0 && (
+              <div className="genre-search-wrap">
+                <Search size={16} />
+                <input
+                  className="genre-search-input"
+                  type="text"
+                  placeholder="Playlist suchen…"
+                  value={playlistSearch}
+                  onChange={(e) => setPlaylistSearch(e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                {playlistSearch && (
+                  <button
+                    className="genre-search-clear"
+                    onClick={() => setPlaylistSearch('')}
+                    aria-label="Suche leeren"
+                  >
+                    &times;
+                  </button>
+                )}
+              </div>
+            )}
           <div className="playlist-grid">
             {loadingPlaylists ? (
               <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
@@ -287,12 +337,12 @@ export default function HomePage() {
               <p className="text-muted" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
                 Du hast noch keine Spotify-Playlists.
               </p>
-            ) : ownedPlaylists.length === 0 ? (
+            ) : filteredPlaylists.length === 0 ? (
               <p className="text-muted" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
-                Keine eigenen Playlists gefunden.
+                Keine Playlists gefunden.
               </p>
             ) : (
-              ownedPlaylists.map((pl) => (
+              filteredPlaylists.map((pl) => (
                 <div
                   key={pl.id}
                   className={`playlist-card ${selectedPlaylist?.id === pl.id ? 'selected' : ''}`}
@@ -305,14 +355,19 @@ export default function HomePage() {
                   )}
                   <div className="playlist-info">
                     <div className="playlist-name">{pl.name}</div>
-                    {pl.tracks > 0 && (
-                      <div className="playlist-tracks">{pl.tracks} Titel</div>
-                    )}
+                    <div className="playlist-tracks">
+                      {pl.tracks > 0 && `${pl.tracks} Titel`}
+                      {pl.tracks > 0 && pl.ownerName && user?.id && pl.ownerId !== user.id && ' · '}
+                      {pl.ownerName && user?.id && pl.ownerId !== user.id && (
+                        <span className="playlist-owner">von {pl.ownerName}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
             )}
           </div>
+          </>
         )}
 
         {/* ── Settings Card ─────────────────────────────────── */}
@@ -480,15 +535,26 @@ export default function HomePage() {
 
         {/* ── Start Button (sticky) ─────────────────────────── */}
         <div className="start-bar">
+          {startError && (
+            <div className="start-error">
+              <AlertTriangle size={14} /> {startError}
+            </div>
+          )}
           <button
             className="btn btn-primary btn-start"
-            disabled={!canStart}
+            disabled={!canStart || startingQuiz}
             onClick={handleStartQuiz}
           >
-            <Gamepad2 size={18} />
-            {canStart
-              ? ` Quiz starten – ${selectionLabel} (${effectiveCount} Fragen)`
-              : ' Wähle ein Genre oder eine Playlist'}
+            {startingQuiz ? (
+              <><Loader size={18} className="spin" /> Prüfe Zugriff…</>
+            ) : (
+              <>
+                <Gamepad2 size={18} />
+                {canStart
+                  ? ` Quiz starten – ${selectionLabel} (${effectiveCount} Fragen)`
+                  : ' Wähle ein Genre oder eine Playlist'}
+              </>
+            )}
           </button>
         </div>
       </div>

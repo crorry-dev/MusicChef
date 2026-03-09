@@ -212,7 +212,7 @@ export async function fetchTracksForPlaylist(playlistId, count = 20) {
       if (err.message.includes('einloggen')) throw err
       if (err.message.includes('Forbidden') || err.message.includes('403')) {
         throw new Error(
-          'Kein Zugriff auf diese Playlist. Bitte wähle eine eigene Playlist oder ein Genre.'
+          'Kein Zugriff auf diese Playlist – sie ist möglicherweise privat. Bitte wähle eine andere Playlist.'
         )
       }
       break
@@ -224,6 +224,28 @@ export async function fetchTracksForPlaylist(playlistId, count = 20) {
   }
 
   return prioritizeWithPreview(shuffleArray(deduplicateTracks(tracks))).slice(0, count)
+}
+
+/* ── Playlist Access Check ──────────────────────────────────
+   Leichtgewichtiger Check (1 Track), ob eine Playlist
+   über die API zugänglich ist. Nutzbar vor dem Quiz-Start.
+   ──────────────────────────────────────────────────────────── */
+export async function checkPlaylistAccess(playlistId) {
+  try {
+    const marketParam = buildMarketParam()
+    await spotifyFetch(
+      `/playlists/${playlistId}/tracks?limit=1&offset=0${marketParam}&additional_types=track`
+    )
+    return { accessible: true }
+  } catch (err) {
+    if (err.message.includes('Forbidden') || err.message.includes('403')) {
+      return { accessible: false, reason: 'private' }
+    }
+    if (err.message.includes('einloggen') || err.message.includes('401')) {
+      return { accessible: false, reason: 'auth' }
+    }
+    return { accessible: false, reason: 'unknown', message: err.message }
+  }
 }
 
 /* ── Random Tracks ──────────────────────────────────────────
@@ -300,7 +322,7 @@ export async function fetchUserPlaylists() {
       const all = []
       let offset = 0
       const limit = 50
-      const maxPages = 2
+      const maxPages = 10
 
       for (let page = 0; page < maxPages; page++) {
         const result = await spotifyFetch(`/me/playlists?limit=${limit}&offset=${offset}`)
@@ -312,6 +334,7 @@ export async function fetchUserPlaylists() {
             tracks: typeof pl.tracks?.total === 'number' ? pl.tracks.total : null,
             image: pl.images?.[0]?.url ?? null,
             ownerId: pl.owner?.id ?? null,
+            ownerName: pl.owner?.display_name ?? null,
           })
         }
         if (!result.next || items.length < limit) break
