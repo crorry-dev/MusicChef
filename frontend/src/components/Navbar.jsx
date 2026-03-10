@@ -4,7 +4,7 @@ import { useTheme } from '../context/ThemeContext'
 import { getClientId } from '../lib/spotify-pkce'
 import {
   MusicNote, BarChart, LogOut, Home, ArrowLeft, Compass,
-  ChevronDown, Sun, Moon, Monitor, Settings, CheckCircle, Globe, Heart, Coffee,
+  ChevronDown, Sun, Moon, Monitor, Settings, CheckCircle, Globe, Heart,
 } from '../lib/icons'
 
 /**
@@ -189,13 +189,13 @@ export default function Navbar({ user, onLogout, minimal = false }) {
                   </button>
                   <a
                     className="sp-dropdown-item"
-                    href="https://buymeacoffee.com/crorry"
+                    href="https://paypal.me/tobcro"
                     target="_blank"
                     rel="noopener noreferrer"
                     role="menuitem"
                     style={{ textDecoration: 'none', color: 'inherit' }}
                   >
-                    <Coffee size={16} />
+                    <Heart size={16} />
                     <span>Unterstützen</span>
                     <Heart size={12} style={{ marginLeft: 'auto', color: 'var(--error, #e74c3c)' }} />
                   </a>

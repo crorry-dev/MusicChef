@@ -6,7 +6,7 @@ import { getClientId } from '../lib/spotify-pkce'
 import { getQuizHistory, clearQuizHistory } from '../lib/quiz-engine'
 import Navbar from '../components/Navbar'
 import {
-  User, Settings, Globe, CheckCircle, LogOut, Coffee, Heart,
+  User, Settings, Globe, CheckCircle, LogOut, Heart,
   Moon, Sun, Monitor, AlertTriangle, ExternalLink, Trash2,
 } from '../lib/icons'
 
@@ -269,13 +269,13 @@ export default function SettingsPage() {
           </p>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <a
-              href="https://buymeacoffee.com/crorry"
+              href="https://paypal.me/tobcro"
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-primary"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}
             >
-              <Coffee size={16} /> Buy me a Coffee
+              <Heart size={16} /> Via PayPal unterstützen
             </a>
             <a
               href="https://github.com/crorry-dev/MusicChef"
