@@ -4,6 +4,7 @@ import { getQuizHistory, clearQuizHistory } from '../lib/quiz-engine'
 import { createPlaylist, addTracksToPlaylist } from '../lib/spotify-api'
 import Navbar from '../components/Navbar'
 import { useAuth } from '../context/AuthContext'
+import { useTranslation } from '../context/LanguageContext'
 import {
   Music, MusicNote, BarChart, Gamepad2, Trash2, AlertTriangle,
   ArrowLeft, ChevronDown, CheckCircle, XCircle, RefreshCw, ListMusic,
@@ -19,11 +20,11 @@ function getGenreIcon(name = '') {
   return match ? match[1].icon : 'music'
 }
 
-function formatDate(dateStr) {
+function formatDate(dateStr, lang = 'de') {
   if (!dateStr) return '—'
   const d = new Date(dateStr)
   if (isNaN(d)) return dateStr
-  return d.toLocaleDateString('de-DE', {
+  return d.toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-US', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -32,7 +33,7 @@ function formatDate(dateStr) {
   })
 }
 
-function HistoryCard({ quiz, user, navigate }) {
+function HistoryCard({ quiz, user, navigate, t, lang }) {
   const [expanded, setExpanded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -89,7 +90,7 @@ function HistoryCard({ quiz, user, navigate }) {
           <div className="history-card-genre">
             {genre.charAt(0).toUpperCase() + genre.slice(1)}
           </div>
-          <div className="history-card-date">{formatDate(quiz.played_at ?? quiz.created_at)}</div>
+          <div className="history-card-date">{formatDate(quiz.played_at ?? quiz.created_at, lang)}</div>
         </div>
         <div className="history-card-right">
           <div className="history-score-text">{score} / {maxScore}</div>
@@ -110,7 +111,7 @@ function HistoryCard({ quiz, user, navigate }) {
         <div className="history-card-body">
           {answers.length === 0 ? (
             <p className="text-muted" style={{ fontSize: '0.85rem' }}>
-              Keine Detailinformationen verfügbar.
+              {t('history.noDetails')}
             </p>
           ) : (
             answers.map((ans, idx) => {
@@ -142,7 +143,7 @@ function HistoryCard({ quiz, user, navigate }) {
           {/* Actions */}
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
             <button className="btn btn-ghost btn-sm" onClick={handleReplay}>
-              <RefreshCw size={14} /> Wiederholen
+              <RefreshCw size={14} /> {t('history.replay')}
             </button>
             {tracksWithIds.length > 0 && (
               <button
@@ -150,7 +151,7 @@ function HistoryCard({ quiz, user, navigate }) {
                 onClick={handleSaveAsPlaylist}
                 disabled={saving || saved}
               >
-                {saved ? <><CheckCircle size={14} /> Gespeichert</> : saving ? 'Speichere…' : <><ListMusic size={14} /> Als Playlist speichern</>}
+                {saved ? <><CheckCircle size={14} /> {t('history.saved')}</> : saving ? t('history.saving') : <><ListMusic size={14} /> {t('history.saveAsPlaylist')}</>}
               </button>
             )}
             {saveError && (
@@ -166,6 +167,7 @@ function HistoryCard({ quiz, user, navigate }) {
 export default function HistoryPage() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { t, lang } = useTranslation()
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -181,7 +183,7 @@ export default function HistoryPage() {
       const list = getQuizHistory()
       setHistory(list.slice().reverse())
     } catch {
-      setError('Verlauf konnte nicht geladen werden.')
+      setError(t('history.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -205,7 +207,7 @@ export default function HistoryPage() {
       setHistory([])
       setClearConfirm(false)
     } catch {
-      setError('Löschen fehlgeschlagen.')
+      setError(t('history.clearFailed'))
     } finally {
       setClearing(false)
     }
@@ -218,9 +220,9 @@ export default function HistoryPage() {
       <div className="container">
         <div className="history-header">
           <div>
-            <h2><BarChart size={20} /> Spielverlauf</h2>
+            <h2><BarChart size={20} /> {t('history.title')}</h2>
             <p className="text-muted" style={{ fontSize: '0.9rem', marginTop: '0.2rem' }}>
-              {loading ? '' : `${history.length} Quiz${history.length !== 1 ? 'zes' : ''} gespielt`}
+              {loading ? '' : t('history.played', { count: history.length })}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -231,10 +233,10 @@ export default function HistoryPage() {
                 disabled={clearing}
               >
                 {clearing
-                  ? 'Wird gelöscht…'
+                  ? t('history.clearing')
                   : clearConfirm
-                  ? <><AlertTriangle size={14} /> Wirklich löschen?</>
-                  : <><Trash2 size={14} /> Verlauf löschen</>}
+                  ? <><AlertTriangle size={14} /> {t('history.confirmClear')}</>
+                  : <><Trash2 size={14} /> {t('history.clearHistory')}</>}
               </button>
             )}
           </div>
@@ -253,21 +255,21 @@ export default function HistoryPage() {
         ) : history.length === 0 ? (
           <div className="history-empty">
             <div className="history-empty-icon"><Music size={40} /></div>
-            <h3>Noch keine Quizzes gespielt</h3>
+            <h3>{t('history.empty')}</h3>
             <p style={{ marginTop: '0.5rem', marginBottom: '1.5rem' }}>
-              Starte dein erstes Quiz und entdecke neue Musik!
+              {t('history.emptyHint')}
             </p>
             <button
               className="btn btn-primary"
               onClick={() => navigate('/home')}
             >
-                            <Gamepad2 size={16} /> Jetzt spielen
+                            <Gamepad2 size={16} /> {t('history.playNow')}
             </button>
           </div>
         ) : (
           <div className="history-list">
             {history.map((quiz, idx) => (
-              <HistoryCard key={quiz.id ?? quiz.quiz_id ?? idx} quiz={quiz} user={user} navigate={navigate} />
+              <HistoryCard key={quiz.id ?? quiz.quiz_id ?? idx} quiz={quiz} user={user} navigate={navigate} t={t} lang={lang} />
             ))}
           </div>
         )}

@@ -4,6 +4,7 @@ import React, {
 } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTranslation } from '../context/LanguageContext'
 import { GENRES, getGenresList, getRegionsList } from '../lib/genres'
 import {
   fetchDiscoverTracks,
@@ -52,6 +53,7 @@ const MOODS = [
    Swipe Card Player (inline, no fixed bar)
    ═══════════════════════════════════════════════════════════ */
 const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkReady, durationMs }, ref) {
+  const { t } = useTranslation()
   const audioRef = useRef(null)
   const modeRef = useRef(null)
   const sdkPosRef = useRef({ ms: 0, ts: Date.now(), paused: true })
@@ -100,8 +102,8 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
     if (!sdkReady) return
     return sdkOnStateChange((state) => {
       if (!state || modeRef.current !== 'sdk') return
-      const t = state.track_window?.current_track
-      if (t) { const d = t.duration_ms / 1000; durRef.current = d; setDuration(d) }
+      const tr = state.track_window?.current_track
+      if (tr) { const d = tr.duration_ms / 1000; durRef.current = d; setDuration(d) }
       sdkPosRef.current = { ms: state.position, ts: Date.now(), paused: state.paused }
       setPlaying(!state.paused)
     })
@@ -224,14 +226,14 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
   return (
     <div className="td-card-player">
       <audio ref={audioRef} preload="auto" playsInline style={{ display: 'none' }} />
-      <button className="td-play-btn" onClick={togglePlay} disabled={!mode && !noDevice} aria-label={playing ? 'Pause' : 'Abspielen'}>
+      <button className="td-play-btn" onClick={togglePlay} disabled={!mode && !noDevice} aria-label={playing ? t('quiz.pause') : t('quiz.play')}>
         {playing ? <Pause size={20} /> : <Play size={20} />}
       </button>
       {noDevice ? (
         <div className="td-no-device">
-          <span>Starte Spotify (<a href="https://open.spotify.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>Web Player</a> oder App)</span>
+          <span>{t('discover.startSpotify').split('{link}')[0]}<a href="https://open.spotify.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>{t('quiz.webPlayer')}</a>{t('discover.startSpotify').split('{link}')[1]}</span>
           <button className="td-retry-btn" onClick={() => { setNoDevice(false); clearMobileDevice() }}>
-            Erneut
+            {t('discover.retry')}
           </button>
         </div>
       ) : (
@@ -258,6 +260,7 @@ function FilterPanel({
   yearFrom, yearTo, onYearFromChange, onYearToChange,
   yearEnabled, onYearToggle, regionFilter, onRegionChange,
 }) {
+  const { t } = useTranslation()
   const [genreSearch, setGenreSearch] = useState('')
   const [showGenres, setShowGenres] = useState(false)
   const regions = useMemo(() => getRegionsList(), [])
@@ -274,7 +277,7 @@ function FilterPanel({
     <div className="td-filters">
       {/* Stimmungen */}
       <div className="td-filter-group">
-        <label className="td-filter-label">Stimmung</label>
+        <label className="td-filter-label">{t('discover.mood')}</label>
         <div className="td-mood-grid">
           {MOODS.map((mood) => {
             const Icon = mood.icon
@@ -286,7 +289,7 @@ function FilterPanel({
                 onClick={() => onToggleMood(mood.id)}
               >
                 <Icon size={16} />
-                <span>{mood.name}</span>
+                <span>{t('discover.' + mood.id)}</span>
               </button>
             )
           })}
@@ -296,10 +299,10 @@ function FilterPanel({
       {/* Genres */}
       <div className="td-filter-group">
         <label className="td-filter-label">
-          Genres
+          {t('discover.genres')}
           {selectedGenres.length > 0 && (
             <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
-              ({selectedGenres.length} gewählt)
+              ({t('discover.genresSelected', { count: selectedGenres.length })})
             </span>
           )}
         </label>
@@ -315,7 +318,7 @@ function FilterPanel({
               {selectedGenres.length > 3 && <span className="text-muted">+{selectedGenres.length - 3}</span>}
             </span>
           ) : (
-            <span className="text-muted"><Shuffle size={14} /> Keine Einschränkung</span>
+            <span className="text-muted"><Shuffle size={14} /> {t('discover.noRestriction')}</span>
           )}
           <ChevronDown size={16} className={showGenres ? 'rotated' : ''} />
         </button>
@@ -347,7 +350,7 @@ function FilterPanel({
               <Search size={14} className="genre-search-icon" />
               <input
                 className="genre-search-input"
-                placeholder="Genre suchen…"
+                placeholder={t('discover.searchGenre')}
                 value={genreSearch}
                 onChange={(e) => setGenreSearch(e.target.value)}
               />
@@ -363,7 +366,7 @@ function FilterPanel({
                 onClick={() => { selectedGenres.forEach((g) => onToggleGenre(g)); setShowGenres(false) }}
                 style={{ color: 'var(--error)' }}
               >
-                <X size={14} /> Auswahl zurücksetzen
+                <X size={14} /> {t('discover.clearSelection')}
               </button>
             )}
             {genres.map((g) => (
@@ -384,7 +387,7 @@ function FilterPanel({
       <div className="td-filter-group">
         <label className="td-filter-label">
           <input type="checkbox" checked={yearEnabled} onChange={(e) => onYearToggle(e.target.checked)} />
-          Jahresbereich
+          {t('discover.yearRange')}
         </label>
         {yearEnabled && (
           <div className="td-year-range">
@@ -480,19 +483,20 @@ function SwipeCard({ track, playerRef, sdkReady, onLike, onSkip, swipeDir }) {
    Result / Done Screen
    ═══════════════════════════════════════════════════════════ */
 function DoneScreen({ likedTracks, saving, saved, playlistUrl, onSave, onReset, playlistName, onPlaylistNameChange }) {
+  const { t } = useTranslation()
   return (
     <div className="td-done">
       <div className="td-done-icon"><Heart size={48} /></div>
-      <h2>{likedTracks.length} Songs gesammelt</h2>
+      <h2>{t('discover.songsCollected', { count: likedTracks.length })}</h2>
 
       {likedTracks.length > 0 && !saved && (
         <div className="td-save-section">
-          <label className="td-filter-label">Playlist-Name</label>
+          <label className="td-filter-label">{t('discover.playlistName')}</label>
           <input
             className="input"
             value={playlistName}
             onChange={(e) => onPlaylistNameChange(e.target.value)}
-            placeholder="z.B. Meine Entdeckungen"
+            placeholder={t('discover.playlistPlaceholder')}
             style={{ marginBottom: '0.75rem' }}
           />
           <button
@@ -500,7 +504,7 @@ function DoneScreen({ likedTracks, saving, saved, playlistUrl, onSave, onReset, 
             onClick={onSave}
             disabled={saving || !playlistName.trim()}
           >
-            {saving ? <><span className="spinner spinner-sm" /> Speichere…</> : <><Check size={18} /> Playlist erstellen</>}
+            {saving ? <><span className="spinner spinner-sm" /> {t('discover.saving')}</> : <><Check size={18} /> {t('discover.createPlaylist')}</>}
           </button>
         </div>
       )}
@@ -508,21 +512,21 @@ function DoneScreen({ likedTracks, saving, saved, playlistUrl, onSave, onReset, 
       {saved && playlistUrl && (
         <div className="td-saved-msg">
           <CheckCircle size={20} />
-          <span>Playlist erstellt!</span>
+          <span>{t('discover.playlistCreated')}</span>
           <a href={playlistUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">
-            <ExternalLink size={14} /> In Spotify öffnen
+            <ExternalLink size={14} /> {t('discover.openInSpotify')}
           </a>
         </div>
       )}
 
       {likedTracks.length > 0 && (
         <div className="td-liked-list">
-          {likedTracks.map((t) => (
-            <div key={t.id} className="td-liked-item">
-              {t.image ? <img src={t.image} alt="" className="td-liked-img" /> : <div className="td-liked-img td-liked-img-placeholder"><Music size={16} /></div>}
+          {likedTracks.map((tr) => (
+            <div key={tr.id} className="td-liked-item">
+              {tr.image ? <img src={tr.image} alt="" className="td-liked-img" /> : <div className="td-liked-img td-liked-img-placeholder"><Music size={16} /></div>}
               <div className="td-liked-text">
-                <span className="td-liked-title">{t.title}</span>
-                <span className="td-liked-artist">{t.artist}</span>
+                <span className="td-liked-title">{tr.title}</span>
+                <span className="td-liked-artist">{tr.artist}</span>
               </div>
             </div>
           ))}
@@ -530,7 +534,7 @@ function DoneScreen({ likedTracks, saving, saved, playlistUrl, onSave, onReset, 
       )}
 
       <button className="btn btn-secondary" onClick={onReset} style={{ marginTop: '1rem' }}>
-        <Shuffle size={16} /> Nochmal entdecken
+        <Shuffle size={16} /> {t('discover.rediscover')}
       </button>
     </div>
   )
@@ -541,6 +545,7 @@ function DoneScreen({ likedTracks, saving, saved, playlistUrl, onSave, onReset, 
    ═══════════════════════════════════════════════════════════ */
 export default function TinderPage() {
   const { user, logout } = useAuth()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const playerRef = useRef(null)
 
@@ -629,8 +634,8 @@ export default function TinderPage() {
         const seen = new Set()
         const merged = []
         for (const arr of results) {
-          for (const t of arr) {
-            if (!seen.has(t.id) && !existingSeenIds.has(t.id)) { seen.add(t.id); merged.push(t) }
+          for (const tr of arr) {
+            if (!seen.has(tr.id) && !existingSeenIds.has(tr.id)) { seen.add(tr.id); merged.push(tr) }
           }
         }
         /* Shuffle to mix genres/moods */
@@ -641,10 +646,10 @@ export default function TinderPage() {
         batch = merged.slice(0, BATCH_SIZE)
       } else {
         batch = await fetchDiscoverTracks(null, BATCH_SIZE, yearRange)
-        batch = batch.filter((t) => !existingSeenIds.has(t.id))
+        batch = batch.filter((tr) => !existingSeenIds.has(tr.id))
       }
 
-      if (batch.length === 0) throw new Error('Keine neuen Songs gefunden. Versuch andere Filter.')
+      if (batch.length === 0) throw new Error(t('discover.noSongsFound'))
       return batch
     } catch (err) {
       setError(err.message)
@@ -652,7 +657,7 @@ export default function TinderPage() {
     } finally {
       setLoadingTracks(false)
     }
-  }, [selectedGenres, selectedMoods, yearRange])
+  }, [selectedGenres, selectedMoods, yearRange, t])
 
   /* Start swiping */
   const handleStart = useCallback(async () => {
@@ -664,18 +669,18 @@ export default function TinderPage() {
     setPlaylistUrl(null)
 
     const genreNames = selectedGenres.map((gId) => GENRES[gId]?.name).filter(Boolean)
-    const moodNames = selectedMoods.map((mId) => MOODS.find((m) => m.id === mId)?.name).filter(Boolean)
+    const moodNames = selectedMoods.map((mId) => t('discover.' + mId)).filter(Boolean)
     const label = [...genreNames, ...moodNames].slice(0, 3).join(', ') || 'Mix'
-    setPlaylistName(`${label} Entdeckungen`)
+    setPlaylistName(`${label} ${t('discover.discoveries')}`)
 
     ensureSdk()
 
     const newSeen = new Set()
     const batch = await loadBatch(newSeen)
-    batch.forEach((t) => newSeen.add(t.id))
+    batch.forEach((tr) => newSeen.add(tr.id))
     setSeenIds(newSeen)
     setTracks(batch)
-  }, [genre, loadBatch, ensureSdk])
+  }, [genre, loadBatch, ensureSdk, t])
 
   /* Advance to next track, load more if needed */
   const advance = useCallback(async () => {
@@ -691,7 +696,7 @@ export default function TinderPage() {
         return
       }
       const newSeen = new Set(seenIds)
-      batch.forEach((t) => newSeen.add(t.id))
+      batch.forEach((tr) => newSeen.add(tr.id))
       setSeenIds(newSeen)
       setTracks(batch)
       setCurrentIdx(0)
@@ -737,8 +742,8 @@ export default function TinderPage() {
     if (!user?.id || likedTracks.length === 0 || !playlistName.trim()) return
     setSaving(true)
     try {
-      const pl = await createPlaylist(user.id, playlistName.trim(), 'Erstellt mit MusicChef Entdecken')
-      const uris = likedTracks.map((t) => `spotify:track:${t.id}`)
+      const pl = await createPlaylist(user.id, playlistName.trim(), t('discover.createdWith'))
+      const uris = likedTracks.map((tr) => `spotify:track:${tr.id}`)
       await addTracksToPlaylist(pl.id, uris)
       setPlaylistUrl(pl.external_urls?.spotify ?? null)
       setSaved(true)
@@ -747,7 +752,7 @@ export default function TinderPage() {
     } finally {
       setSaving(false)
     }
-  }, [user, likedTracks, playlistName])
+  }, [user, likedTracks, playlistName, t])
 
   const handleReset = useCallback(() => {
     setPhase('setup')
@@ -771,8 +776,8 @@ export default function TinderPage() {
         {phase === 'setup' && (
           <div className="td-setup">
             <div className="td-setup-header">
-              <h1 className="gradient-text">Songs entdecken</h1>
-              <p className="text-muted">Wähle Stimmungen und Genres – oder lass dich komplett überraschen</p>
+              <h1 className="gradient-text">{t('discover.title')}</h1>
+              <p className="text-muted">{t('discover.subtitle')}</p>
             </div>
 
             <FilterPanel
@@ -791,7 +796,7 @@ export default function TinderPage() {
             />
 
             <button className="btn btn-primary btn-lg btn-block" onClick={handleStart}>
-              <Shuffle size={18} /> {selectedGenres.length === 0 && selectedMoods.length === 0 ? 'Überrasch mich!' : 'Los geht\'s'}
+              <Shuffle size={18} /> {selectedGenres.length === 0 && selectedMoods.length === 0 ? t('discover.surpriseMe') : t('discover.letsGo')}
             </button>
           </div>
         )}
@@ -804,20 +809,20 @@ export default function TinderPage() {
                 <Heart size={16} /> {likedTracks.length}
               </div>
               <button className="btn btn-secondary btn-sm" onClick={handleFinish}>
-                Fertig
+                {t('discover.finished')}
               </button>
             </div>
 
             {loadingTracks && !currentTrack && (
               <div className="td-loading">
-                <span className="spinner" /> Songs werden geladen…
+                <span className="spinner" /> {t('discover.loadingTracks')}
               </div>
             )}
 
             {error && !currentTrack && (
               <div className="td-error">
                 <p>{error}</p>
-                <button className="btn btn-secondary btn-sm" onClick={handleReset}>Zurück</button>
+                <button className="btn btn-secondary btn-sm" onClick={handleReset}>{t('common.back')}</button>
               </div>
             )}
 
@@ -836,16 +841,16 @@ export default function TinderPage() {
                 </div>
 
                 <div className="td-actions">
-                  <button className="td-action-btn td-action-skip" onClick={handleSkipTrack} aria-label="Überspringen">
+                  <button className="td-action-btn td-action-skip" onClick={handleSkipTrack} aria-label={t('discover.skip')}>
                     <X size={28} />
                   </button>
-                  <button className="td-action-btn td-action-like" onClick={handleLike} aria-label="Zur Playlist hinzufügen">
+                  <button className="td-action-btn td-action-like" onClick={handleLike} aria-label={t('discover.addToPlaylist')}>
                     <Heart size={28} />
                   </button>
                 </div>
 
                 <p className="td-hint">
-                  ← Skippen · Hinzufügen → · Leertaste = Play/Pause
+                  {t('discover.hint')}
                 </p>
               </>
             )}

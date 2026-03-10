@@ -1,9 +1,11 @@
 import React, { useState, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useTranslation } from '../context/LanguageContext'
 import { Settings, Info, AlertTriangle } from '../lib/icons'
 
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false)
+  const { t } = useTranslation()
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(text).then(() => {
@@ -30,7 +32,7 @@ function CopyButton({ text }) {
         whiteSpace: 'nowrap',
       }}
     >
-      {copied ? '✓ Kopiert' : 'Kopieren'}
+      {copied ? t('setup.copied') : t('setup.copy')}
     </button>
   )
 }
@@ -114,6 +116,7 @@ function StepCard({ number, title, children }) {
 
 export default function SetupPage() {
   const { updateClientId } = useAuth()
+  const { t } = useTranslation()
   const [clientId, setClientId] = useState('')
   const [error, setError] = useState(null)
 
@@ -124,7 +127,7 @@ export default function SetupPage() {
     e.preventDefault()
     const id = clientId.trim()
     if (!id || id.length < 10) {
-      setError('Bitte gib eine gültige Client ID ein.')
+      setError(t('setup.error'))
       return
     }
     updateClientId(id)
@@ -134,13 +137,13 @@ export default function SetupPage() {
     <div className="login-page">
       <div className="login-box" style={{ maxWidth: '560px' }}>
         <div className="login-logo"><Settings size={40} /></div>
-        <h1 className="login-title gradient-text">Setup</h1>
+        <h1 className="login-title gradient-text">{t('setup.title')}</h1>
         <p className="login-tagline">
-          Einmalige Einrichtung – dauert nur 2 Minuten
+          {t('setup.tagline')}
         </p>
 
         <div style={{ textAlign: 'left', margin: '1.5rem 0 0.5rem' }}>
-          <StepCard number="1" title="Spotify Developer Dashboard öffnen">
+          <StepCard number="1" title={t('setup.step1title')}>
             <a
               href="https://developer.spotify.com/dashboard"
               target="_blank"
@@ -150,11 +153,11 @@ export default function SetupPage() {
               developer.spotify.com/dashboard →
             </a>
             <br />
-            Melde dich dort mit deinem normalen Spotify-Konto an.
+            {t('setup.step1text')}
           </StepCard>
 
-          <StepCard number="2" title='Auf "Create App" klicken'>
-            Fülle das Formular wie folgt aus:
+          <StepCard number="2" title={t('setup.step2title')}>
+            {t('setup.step2text')}
             <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <div>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>
@@ -170,7 +173,7 @@ export default function SetupPage() {
               </div>
               <div>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>
-                  Redirect URIs (beide eintragen!):
+                  {t('setup.redirectLabel')}
                 </span>
                 <CodeBlock>{ghPagesCallback}</CodeBlock>
                 <div style={{ marginTop: '0.3rem' }}>
@@ -182,7 +185,7 @@ export default function SetupPage() {
                       marginBottom: '0.25rem',
                     }}
                   >
-                    Für lokale Entwicklung zusätzlich:
+                    {t('setup.localDevNote')}
                   </span>
                   <CodeBlock>{localCallback}</CodeBlock>
                 </div>
@@ -198,23 +201,18 @@ export default function SetupPage() {
                 color: 'var(--accent)',
               }}
             >
-              <Info size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> MusicChef wird als <strong>GitHub Pages</strong> Seite unter{' '}
-              <strong>crorry-dev.github.io/MusicChef</strong> gehostet –
-              deshalb ist die erste URL die wichtigste.
+              <Info size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> {t('setup.ghPagesNote')}
             </div>
           </StepCard>
 
-          <StepCard number="3" title="API-Zugriff auswählen">
-            Setze den Haken bei <strong>&quot;Web API&quot;</strong>.
+          <StepCard number="3" title={t('setup.step3title')}>
+            {t('setup.step3text1')} <strong>&quot;Web API&quot;</strong>.
             <br />
-            Dann klicke auf <strong>&quot;Save&quot;</strong>.
+            {t('setup.step3text2')} <strong>&quot;Save&quot;</strong>.
           </StepCard>
 
-          <StepCard number="4" title="Client ID kopieren">
-            Auf der App-Übersichtsseite siehst du die{' '}
-            <strong>Client ID</strong> – eine lange Zeichenkette.
-            <br />
-            Kopiere sie und füge sie unten ein.
+          <StepCard number="4" title={t('setup.step4title')}>
+            {t('setup.step4text')}
             <div
               style={{
                 marginTop: '0.5rem',
@@ -225,8 +223,7 @@ export default function SetupPage() {
                 color: 'var(--warning)',
               }}
             >
-              <AlertTriangle size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Du brauchst <strong>nur die Client ID</strong> – kein Client
-              Secret nötig!
+              <AlertTriangle size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> {t('setup.step4warn')}
             </div>
           </StepCard>
         </div>
@@ -240,13 +237,13 @@ export default function SetupPage() {
         <form onSubmit={handleSubmit} style={{ marginTop: '0.75rem' }}>
           <div className="input-group" style={{ marginBottom: '1rem' }}>
             <label className="input-label" htmlFor="clientId">
-              Spotify Client ID
+              {t('setup.inputLabel')}
             </label>
             <input
               id="clientId"
               className="input"
               type="text"
-              placeholder="z.B. a1b2c3d4e5f6..."
+              placeholder={t('setup.inputPlaceholder')}
               value={clientId}
               onChange={(e) => {
                 setClientId(e.target.value)
@@ -258,7 +255,7 @@ export default function SetupPage() {
             />
           </div>
           <button className="spotify-btn" type="submit" style={{ width: '100%' }}>
-            Speichern & Weiter
+            {t('setup.submit')}
           </button>
         </form>
 
@@ -269,9 +266,9 @@ export default function SetupPage() {
             color: 'var(--text-muted)',
           }}
         >
-          Die Client ID wird nur lokal in deinem Browser gespeichert.
+          {t('setup.privacy')}
           <br />
-          Kein Client Secret nötig – MusicChef nutzt den sicheren PKCE-Flow.
+          {t('setup.privacyPkce')}
         </p>
       </div>
     </div>

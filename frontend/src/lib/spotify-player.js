@@ -159,6 +159,14 @@ export async function seek(positionMs) {
   try { await player?.seek(Math.round(positionMs)) } catch { /* silent */ }
 }
 
+export async function setVolume(value) {
+  try { await player?.setVolume(Math.max(0, Math.min(1, value))) } catch { /* silent */ }
+}
+
+export function getVolume() {
+  return player?.getVolume?.() ?? Promise.resolve(0.8)
+}
+
 /* ── State Listener ────────────────────────────────────────── */
 export function onStateChange(fn) {
   stateListeners.add(fn)

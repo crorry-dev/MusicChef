@@ -1,19 +1,21 @@
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useTranslation } from '../context/LanguageContext'
 import Navbar from '../components/Navbar'
 import {
-  Heart, Coffee, Star, ExternalLink, Zap, Globe,
+  Heart, Coffee, Star, ExternalLink, Zap, Globe, Info,
 } from '../lib/icons'
 
 const PRESETS = [
-  { amount: 1, label: 'Kaffee', icon: Coffee, color: '#a0522d' },
-  { amount: 3, label: 'Snack', icon: Heart, color: 'var(--error)' },
-  { amount: 5, label: 'Supporter', icon: Star, color: '#ffd93d' },
-  { amount: 10, label: 'Held', icon: Zap, color: 'var(--accent)' },
+  { amount: 1, labelKey: 'donate.coffee', icon: Coffee, color: '#a0522d' },
+  { amount: 3, labelKey: 'donate.snack', icon: Heart, color: 'var(--error)' },
+  { amount: 5, labelKey: 'donate.supporter', icon: Star, color: '#ffd93d' },
+  { amount: 10, labelKey: 'donate.hero', icon: Zap, color: 'var(--accent)' },
 ]
 
 export default function DonatePage() {
   const { user, logout } = useAuth()
+  const { t } = useTranslation()
   const [customAmount, setCustomAmount] = useState('')
 
   const customLink = customAmount.trim()
@@ -37,23 +39,33 @@ export default function DonatePage() {
             <Heart size={32} style={{ color: '#fff' }} />
           </div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-            MusicChef unterstützen
+            {t('donate.title')}
           </h1>
           <p className="text-muted" style={{ lineHeight: 1.7, maxWidth: '480px', margin: '0 auto' }}>
-            MusicChef ist kostenlos, Open Source und werbefrei.
-            Aber der Betrieb kostet Geld – Hosting, API-Zugriff und Entwicklungszeit.
+            {t('donate.subtitle')}
+          </p>
+        </div>
+
+        {/* Optional-Hinweis */}
+        <div className="settings-card" style={{
+          display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+          background: 'var(--surface2)', border: '1px solid var(--border)',
+        }}>
+          <Info size={20} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: '0.1rem' }} />
+          <p style={{ fontSize: '0.88rem', lineHeight: 1.7, margin: 0, color: 'var(--text)' }}>
+            <strong>{t('donate.optionalNotice')}</strong> {t('donate.optionalDetail')}
           </p>
         </div>
 
         {/* Warum */}
         <section className="settings-card">
-          <p className="section-title" style={{ marginBottom: '0.75rem' }}>Warum spenden?</p>
+          <p className="section-title" style={{ marginBottom: '0.75rem' }}>{t('donate.whyTitle')}</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             {[
-              { icon: Globe, text: 'Hosting & Domain für die Live-App' },
-              { icon: Zap, text: 'Spotify API-Zugriff und Infrastruktur' },
-              { icon: Coffee, text: 'Hunderte Stunden Entwicklungsarbeit' },
-              { icon: Star, text: 'Neue Features, Bugfixes & Wartung' },
+              { icon: Globe, text: t('donate.reason1') },
+              { icon: Zap, text: t('donate.reason2') },
+              { icon: Coffee, text: t('donate.reason3') },
+              { icon: Star, text: t('donate.reason4') },
             ].map(({ icon: Icon, text }, i) => (
               <div key={i} style={{
                 display: 'flex', alignItems: 'center', gap: '0.75rem',
@@ -71,10 +83,10 @@ export default function DonatePage() {
           background: 'linear-gradient(135deg, var(--surface) 0%, var(--accent-dim) 100%)',
         }}>
           <p className="section-title" style={{ marginBottom: '1rem' }}>
-            <Heart size={16} /> Betrag wählen
+            <Heart size={16} /> {t('donate.chooseAmount')}
           </p>
           <div className="donate-options" style={{ marginBottom: '1.25rem' }}>
-            {PRESETS.map(({ amount, label, icon: Icon, color }) => (
+            {PRESETS.map(({ amount, labelKey, icon: Icon, color }) => (
               <a
                 key={amount}
                 href={`https://paypal.me/tobcro/${amount}`}
@@ -82,7 +94,7 @@ export default function DonatePage() {
                 rel="noopener noreferrer"
                 className="donate-chip"
               >
-                <Icon size={16} style={{ color }} /> {amount} € {label}
+                <Icon size={16} style={{ color }} /> {amount} € {t(labelKey)}
               </a>
             ))}
           </div>
@@ -90,7 +102,7 @@ export default function DonatePage() {
           {/* Freier Betrag */}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
             <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>
-              Oder freien Betrag eingeben
+              {t('donate.customLabel')}
             </label>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
               <div style={{ position: 'relative', flex: 1 }}>
@@ -101,7 +113,7 @@ export default function DonatePage() {
                   step="1"
                   value={customAmount}
                   onChange={(e) => setCustomAmount(e.target.value)}
-                  placeholder="z.B. 7"
+                  placeholder={t('donate.customPlaceholder')}
                   style={{ paddingRight: '2rem', fontSize: '0.92rem' }}
                 />
                 <span style={{
@@ -116,27 +128,33 @@ export default function DonatePage() {
                 className="btn btn-primary"
                 style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}
               >
-                Via PayPal spenden
+                {t('donate.paypal')}
               </a>
             </div>
           </div>
         </section>
 
-        {/* Danke */}
+        {/* Danke + GitHub Star */}
         <section className="settings-card" style={{ textAlign: 'center' }}>
           <p style={{ fontSize: '0.9rem', lineHeight: 1.7, color: 'var(--text-muted)' }}>
-            Jeder Beitrag – egal wie klein – hilft enorm und motiviert,
-            MusicChef weiterzuentwickeln. Danke!
+            {t('donate.thanks')}
           </p>
-          <div style={{ marginTop: '1rem' }}>
+          <div style={{
+            marginTop: '1.25rem', padding: '1rem', borderRadius: 'var(--radius-sm)',
+            background: 'var(--surface2)', border: '1px solid var(--border)',
+          }}>
+            <p style={{ fontSize: '0.88rem', lineHeight: 1.6, margin: '0 0 0.75rem', color: 'var(--text)' }}>
+              <Star size={16} style={{ color: '#ffd93d', verticalAlign: 'text-bottom' }} />{' '}
+              <strong>{t('donate.noMoney')}</strong> {t('donate.starDesc')}
+            </p>
             <a
               href="https://github.com/crorry-dev/MusicChef"
               target="_blank"
               rel="noopener noreferrer"
-              className="btn btn-ghost btn-sm"
-              style={{ fontSize: '0.82rem' }}
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}
             >
-              <ExternalLink size={14} /> Projekt auf GitHub
+              <Star size={14} /> {t('donate.starButton')}
             </a>
           </div>
         </section>

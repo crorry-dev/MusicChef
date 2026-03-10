@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
+import { useTranslation } from '../context/LanguageContext'
 import { getClientId } from '../lib/spotify-pkce'
 import {
   MusicNote, BarChart, LogOut, Home, ArrowLeft, Compass,
@@ -17,6 +18,7 @@ export default function Navbar({ user, onLogout, minimal = false }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
   const { preference, setTheme } = useTheme()
+  const { t, lang, setLanguage } = useTranslation()
 
   useEffect(() => {
     if (!menuOpen) return
@@ -63,21 +65,21 @@ export default function Navbar({ user, onLogout, minimal = false }) {
               onClick={() => navigate('/home')}
             >
               <Home size={18} />
-              <span>Home</span>
+              <span>{t('nav.home')}</span>
             </button>
             <button
               className={`sp-nav-link ${location.pathname === '/history' ? 'active' : ''}`}
               onClick={() => navigate('/history')}
             >
               <BarChart size={18} />
-              <span>Verlauf</span>
+              <span>{t('nav.history')}</span>
             </button>
             <button
               className={`sp-nav-link ${location.pathname === '/discover' ? 'active' : ''}`}
               onClick={() => navigate('/discover')}
             >
               <Compass size={18} />
-              <span>Entdecken</span>
+              <span>{t('nav.discover')}</span>
             </button>
           </div>
         )}
@@ -124,25 +126,25 @@ export default function Navbar({ user, onLogout, minimal = false }) {
 
                   {/* Status */}
                   <div className="sp-dropdown-section">
-                    <span className="sp-dropdown-section-label">Status</span>
+                    <span className="sp-dropdown-section-label">{t('nav.status')}</span>
                     <div className="sp-dropdown-status">
                       <CheckCircle size={14} />
-                      <span>Login</span>
-                      <span className="sp-status-badge sp-status-ok">Verbunden</span>
+                      <span>{t('nav.login')}</span>
+                      <span className="sp-status-badge sp-status-ok">{t('nav.connected')}</span>
                     </div>
                     <div className="sp-dropdown-status">
                       <Settings size={14} />
-                      <span>Client ID</span>
+                      <span>{t('nav.clientId')}</span>
                       {maskedId ? (
                         <span className="sp-status-badge sp-status-ok">{maskedId}</span>
                       ) : (
-                        <span className="sp-status-badge sp-status-warn">Fehlt</span>
+                        <span className="sp-status-badge sp-status-warn">{t('nav.missing')}</span>
                       )}
                     </div>
                     <div className="sp-dropdown-status">
                       <Globe size={14} />
-                      <span>API</span>
-                      <span className="sp-status-badge sp-status-ok">Aktiv</span>
+                      <span>{t('nav.api')}</span>
+                      <span className="sp-status-badge sp-status-ok">{t('nav.active')}</span>
                     </div>
                   </div>
 
@@ -150,28 +152,47 @@ export default function Navbar({ user, onLogout, minimal = false }) {
 
                   {/* Theme Switcher */}
                   <div className="sp-dropdown-section">
-                    <span className="sp-dropdown-section-label">Design</span>
+                    <span className="sp-dropdown-section-label">{t('nav.design')}</span>
                     <div className="sp-theme-switcher">
                       <button
                         className={`sp-theme-btn ${preference === 'dark' ? 'active' : ''}`}
                         onClick={() => setTheme('dark')}
                       >
                         <Moon size={14} />
-                        <span>Dunkel</span>
+                        <span>{t('nav.dark')}</span>
                       </button>
                       <button
                         className={`sp-theme-btn ${preference === 'light' ? 'active' : ''}`}
                         onClick={() => setTheme('light')}
                       >
                         <Sun size={14} />
-                        <span>Hell</span>
+                        <span>{t('nav.light')}</span>
                       </button>
                       <button
                         className={`sp-theme-btn ${preference === 'system' ? 'active' : ''}`}
                         onClick={() => setTheme('system')}
                       >
                         <Monitor size={14} />
-                        <span>System</span>
+                        <span>{t('nav.system')}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Language Switcher */}
+                  <div className="sp-dropdown-section">
+                    <span className="sp-dropdown-section-label">{t('settings.language')}</span>
+                    <div className="sp-theme-switcher">
+                      <button
+                        className={`sp-theme-btn ${lang === 'de' ? 'active' : ''}`}
+                        onClick={() => setLanguage('de')}
+                      >
+                        <span>DE</span>
+                      </button>
+                      <button
+                        className={`sp-theme-btn ${lang === 'en' ? 'active' : ''}`}
+                        onClick={() => setLanguage('en')}
+                      >
+                        <span>EN</span>
                       </button>
                     </div>
                   </div>
@@ -185,7 +206,7 @@ export default function Navbar({ user, onLogout, minimal = false }) {
                     role="menuitem"
                   >
                     <Settings size={16} />
-                    <span>Einstellungen</span>
+                    <span>{t('nav.settings')}</span>
                   </button>
                   <button
                     className="sp-dropdown-item"
@@ -193,7 +214,7 @@ export default function Navbar({ user, onLogout, minimal = false }) {
                     role="menuitem"
                   >
                     <Heart size={16} />
-                    <span>Unterstützen</span>
+                    <span>{t('nav.support')}</span>
                     <Heart size={12} style={{ marginLeft: 'auto', color: 'var(--error, #e74c3c)' }} />
                   </button>
 
@@ -207,7 +228,7 @@ export default function Navbar({ user, onLogout, minimal = false }) {
                       role="menuitem"
                     >
                       <LogOut size={16} />
-                      <span>Abmelden</span>
+                      <span>{t('nav.logout')}</span>
                     </button>
                   )}
                 </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTranslation } from '../context/LanguageContext'
 import Navbar from '../components/Navbar'
 import {
   MusicNote, Music, Trophy, Star, BookOpen, RefreshCw, BarChart,
@@ -65,11 +66,11 @@ function ScoreRing({ percentage }) {
   )
 }
 
-function getRating(pct) {
-  if (pct >= 80) return { icon: <Trophy size={32} />, label: 'Ausgezeichnet!' }
-  if (pct >= 60) return { icon: <Star size={32} />, label: 'Gut gemacht!' }
-  if (pct >= 40) return { icon: <BookOpen size={32} />, label: 'Weiter üben!' }
-  return { icon: <Music size={32} />, label: 'Nicht aufgeben!' }
+function getRating(pct, t) {
+  if (pct >= 80) return { icon: <Trophy size={32} />, label: t('results.excellent') }
+  if (pct >= 60) return { icon: <Star size={32} />, label: t('results.wellDone') }
+  if (pct >= 40) return { icon: <BookOpen size={32} />, label: t('results.keepPracticing') }
+  return { icon: <Music size={32} />, label: t('results.dontGiveUp') }
 }
 
 export default function ResultsPage() {
@@ -77,6 +78,7 @@ export default function ResultsPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { t } = useTranslation()
 
   // Backend sends: {quiz_id, genre, mode, score, total_questions, max_score, answers: [{track, user_artist, user_title, artist_correct, title_correct, points}]}
   const results = location.state?.results
@@ -89,7 +91,7 @@ export default function ResultsPage() {
   const totalQuestions = results?.total_questions ?? 0
   const answers = results?.answers ?? []
   const percentage = maxScore > 0 ? (finalScore / maxScore) * 100 : 0
-  const rating = getRating(percentage)
+  const rating = getRating(percentage, t)
 
   useEffect(() => {
     if (percentage >= 60) {
@@ -108,10 +110,10 @@ export default function ResultsPage() {
     return (
       <div className="container" style={{ paddingTop: '3rem', textAlign: 'center' }}>
         <p className="text-muted" style={{ marginBottom: '1rem' }}>
-          Keine Ergebnisse verfügbar.
+          {t('results.noResults')}
         </p>
         <Link to="/home" className="btn btn-primary">
-          Zur Startseite
+          {t('results.toHome')}
         </Link>
       </div>
     )
@@ -131,22 +133,22 @@ export default function ResultsPage() {
 
           <div className="results-score-display">
             <span className="results-score-big">{finalScore}</span>
-            <span className="results-score-max"> / {maxScore} Pkt.</span>
+            <span className="results-score-max"> / {maxScore} {t('quiz.pts')}</span>
           </div>
           <div>
             <span className="results-percentage">{Math.round(percentage)}%</span>
           </div>
           <p className="text-muted" style={{ marginTop: '0.75rem', fontSize: '0.9rem' }}>
-            {totalQuestions} Fragen · Quiz-ID: {quizId}
+            {t('results.questions', { count: totalQuestions, id: quizId })}
           </p>
         </div>
 
         <div className="results-actions">
           <button className="btn btn-primary btn-lg" onClick={() => navigate('/home')}>
-            <RefreshCw size={16} /> Nochmal spielen
+            <RefreshCw size={16} /> {t('results.playAgain')}
           </button>
           <Link to="/history" className="btn btn-secondary btn-lg">
-            <BarChart size={16} /> Verlauf ansehen
+            <BarChart size={16} /> {t('results.viewHistory')}
           </Link>
         </div>
 
@@ -155,7 +157,7 @@ export default function ResultsPage() {
         {answers.length > 0 && (
           <>
             <p className="section-title" style={{ marginBottom: '1rem' }}>
-              Deine Antworten
+              {t('results.yourAnswers')}
             </p>
             <div className="results-list">
               {answers.map((ans, idx) => {
@@ -181,7 +183,7 @@ export default function ResultsPage() {
                       <div className="result-guess-row">
                         {ans.fieldResults ? (
                           Object.entries(ans.fieldResults).map(([field, fr]) => {
-                            const labels = { artist: 'Interpret', title: 'Titel', year: 'Jahr' }
+                            const labels = { artist: t('results.artist'), title: t('results.title'), year: t('results.year') }
                             return (
                               <div className="result-guess-item" key={field}>
                                 <span className="result-guess-label">{labels[field] ?? field}:</span>
@@ -194,13 +196,13 @@ export default function ResultsPage() {
                         ) : (
                           <>
                             <div className="result-guess-item">
-                              <span className="result-guess-label">Interpret:</span>
+                              <span className="result-guess-label">{t('results.artist')}</span>
                               <span className={`result-guess-val ${artistCorrect ? 'correct' : 'wrong'}`}>
                                 {artistCorrect ? <Check size={12} /> : <XIcon size={12} />} {ans.user_artist || '—'}
                               </span>
                             </div>
                             <div className="result-guess-item">
-                              <span className="result-guess-label">Titel:</span>
+                              <span className="result-guess-label">{t('results.title')}</span>
                               <span className={`result-guess-val ${titleCorrect ? 'correct' : 'wrong'}`}>
                                 {titleCorrect ? <Check size={12} /> : <XIcon size={12} />} {ans.user_title || '—'}
                               </span>
@@ -212,7 +214,7 @@ export default function ResultsPage() {
 
                     <div className="result-points-col">
                       <div className={`result-points-val ${pts === 0 ? 'zero' : ''}`}>+{pts}</div>
-                      <div className="result-points-sub">Punkte</div>
+                      <div className="result-points-sub">{t('quiz.pts')}</div>
                     </div>
                   </div>
                 )
@@ -227,24 +229,23 @@ export default function ResultsPage() {
         <div className="donate-card">
           <div className="donate-header">
             <Coffee size={18} />
-            <span>MusicChef unterstützen</span>
+            <span>{t('results.supportTitle')}</span>
           </div>
           <p className="donate-text">
-            MusicChef ist kostenlos, aber der Betrieb kostet Geld.
-            Mit einer kleinen Spende hilfst du, das Projekt am Leben zu halten.
+            {t('results.supportText')}
           </p>
           <div className="donate-options">
             <a href="https://paypal.me/tobcro/1" target="_blank" rel="noopener noreferrer" className="donate-chip">
-              <Coffee size={14} /> 1 € Kaffee
+              <Coffee size={14} /> {t('results.coffee')}
             </a>
             <a href="https://paypal.me/tobcro/3" target="_blank" rel="noopener noreferrer" className="donate-chip">
-              <Heart size={14} /> 3 € Snack
+              <Heart size={14} /> {t('results.snack')}
             </a>
             <a href="https://paypal.me/tobcro/5" target="_blank" rel="noopener noreferrer" className="donate-chip">
-              <Star size={14} /> 5 € Supporter
+              <Star size={14} /> {t('results.supporter')}
             </a>
             <a href="https://paypal.me/tobcro" target="_blank" rel="noopener noreferrer" className="donate-chip donate-chip-free">
-              Freier Betrag <ExternalLink size={12} />
+              {t('results.freeAmount')} <ExternalLink size={12} />
             </a>
           </div>
         </div>

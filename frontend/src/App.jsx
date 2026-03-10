@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { LanguageProvider } from './context/LanguageContext'
 import SetupPage from './pages/SetupPage'
 import CallbackPage from './pages/CallbackPage'
 import LoginPage from './pages/LoginPage'
@@ -58,6 +59,7 @@ export default function App() {
   const basename = import.meta.env.BASE_URL.replace(/\/$/, '')
 
   return (
+    <LanguageProvider>
     <ThemeProvider>
     <AuthProvider>
       <BrowserRouter basename={basename} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -77,5 +79,6 @@ export default function App() {
       </BrowserRouter>
     </AuthProvider>
     </ThemeProvider>
+    </LanguageProvider>
   )
 }

@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useTranslation } from '../context/LanguageContext'
 import { getClientId } from '../lib/spotify-pkce'
 import { getQuizHistory, clearQuizHistory } from '../lib/quiz-engine'
 import Navbar from '../components/Navbar'
@@ -13,6 +14,7 @@ import {
 export default function SettingsPage() {
   const { user, logout, updateClientId, resetSetup } = useAuth()
   const { preference, setTheme } = useTheme()
+  const { t, lang, setLanguage } = useTranslation()
   const navigate = useNavigate()
 
   const [clientIdInput, setClientIdInput] = useState(getClientId() ?? '')
@@ -26,7 +28,7 @@ export default function SettingsPage() {
   const handleSaveClientId = useCallback(() => {
     const id = clientIdInput.trim()
     if (!id || id.length < 10) {
-      setClientIdError('Bitte gib eine gültige Client ID ein (min. 10 Zeichen).')
+      setClientIdError(t('settings.clientIdError'))
       return
     }
     setClientIdError(null)
@@ -51,12 +53,12 @@ export default function SettingsPage() {
 
       <div className="container home-container" style={{ maxWidth: '640px' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem' }}>
-          <Settings size={22} /> Einstellungen
+          <Settings size={22} /> {t('settings.title')}
         </h1>
 
         {/* ── Profil ──────────────────────────────────────── */}
         <section className="settings-card">
-          <p className="section-title"><User size={16} /> Profil</p>
+          <p className="section-title"><User size={16} /> {t('settings.profile')}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
             {user?.image ? (
               <img
@@ -76,14 +78,14 @@ export default function SettingsPage() {
             )}
             <div>
               <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-bright)' }}>
-                {user?.display_name || 'Unbekannt'}
+                {user?.display_name || t('common.unknown')}
               </div>
               {user?.email && (
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{user.email}</div>
               )}
               {user?.country && (
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                  <Globe size={12} style={{ verticalAlign: 'middle' }} /> Markt: {user.country}
+                  <Globe size={12} style={{ verticalAlign: 'middle' }} /> {t('settings.market')} {user.country}
                 </div>
               )}
             </div>
@@ -93,13 +95,13 @@ export default function SettingsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <div className="sp-dropdown-status">
               <CheckCircle size={14} />
-              <span>Login</span>
-              <span className="sp-status-badge sp-status-ok">Verbunden</span>
+              <span>{t('settings.login')}</span>
+              <span className="sp-status-badge sp-status-ok">{t('settings.connected')}</span>
             </div>
             <div className="sp-dropdown-status">
               <Globe size={14} />
-              <span>API-Modus</span>
-              <span className="sp-status-badge sp-status-warn">Development</span>
+              <span>{t('settings.apiMode')}</span>
+              <span className="sp-status-badge sp-status-warn">{t('settings.development')}</span>
             </div>
           </div>
 
@@ -111,17 +113,16 @@ export default function SettingsPage() {
               className="btn btn-ghost btn-sm"
               style={{ fontSize: '0.82rem' }}
             >
-              <ExternalLink size={14} /> Spotify-Profil öffnen
+              <ExternalLink size={14} /> {t('settings.openProfile')}
             </a>
           </div>
         </section>
 
         {/* ── Client ID ───────────────────────────────────── */}
         <section className="settings-card">
-          <p className="section-title"><Settings size={16} /> Spotify Client ID</p>
+          <p className="section-title"><Settings size={16} /> {t('settings.clientIdTitle')}</p>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-            Die Client ID verbindet MusicChef mit deiner Spotify Developer App.
-            Du kannst sie hier jederzeit ändern.
+            {t('settings.clientIdDesc')}
           </p>
           {clientIdError && (
             <div className="error-box" style={{ marginBottom: '0.75rem', fontSize: '0.85rem' }}>
@@ -134,7 +135,7 @@ export default function SettingsPage() {
               type="text"
               value={clientIdInput}
               onChange={(e) => { setClientIdInput(e.target.value); setClientIdError(null); setClientIdSaved(false) }}
-              placeholder="z.B. a1b2c3d4e5f6..."
+              placeholder={t('settings.clientIdPlaceholder')}
               autoComplete="off"
               spellCheck={false}
               style={{ fontFamily: 'monospace', flex: 1, fontSize: '0.88rem' }}
@@ -144,11 +145,11 @@ export default function SettingsPage() {
               onClick={handleSaveClientId}
               style={{ whiteSpace: 'nowrap' }}
             >
-              {clientIdSaved ? <><CheckCircle size={14} /> Gespeichert</> : 'Speichern'}
+              {clientIdSaved ? <><CheckCircle size={14} /> {t('settings.clientIdSaved')}</> : t('common.save')}
             </button>
           </div>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-            Wird nur lokal in deinem Browser gespeichert. Kein Client Secret nötig.
+            {t('settings.clientIdLocal')}
           </p>
           <div style={{ marginTop: '0.75rem' }}>
             <a
@@ -158,45 +159,64 @@ export default function SettingsPage() {
               className="btn btn-ghost btn-sm"
               style={{ fontSize: '0.82rem' }}
             >
-              <ExternalLink size={14} /> Spotify Developer Dashboard
+              <ExternalLink size={14} /> {t('settings.devDashboard')}
             </a>
           </div>
         </section>
 
         {/* ── Design ──────────────────────────────────────── */}
         <section className="settings-card">
-          <p className="section-title"><Moon size={16} /> Design</p>
+          <p className="section-title"><Moon size={16} /> {t('settings.design')}</p>
           <div className="sp-theme-switcher" style={{ justifyContent: 'flex-start' }}>
             <button
               className={`sp-theme-btn ${preference === 'dark' ? 'active' : ''}`}
               onClick={() => setTheme('dark')}
             >
-              <Moon size={14} /> Dunkel
+              <Moon size={14} /> {t('settings.dark')}
             </button>
             <button
               className={`sp-theme-btn ${preference === 'light' ? 'active' : ''}`}
               onClick={() => setTheme('light')}
             >
-              <Sun size={14} /> Hell
+              <Sun size={14} /> {t('settings.light')}
             </button>
             <button
               className={`sp-theme-btn ${preference === 'system' ? 'active' : ''}`}
               onClick={() => setTheme('system')}
             >
-              <Monitor size={14} /> System
+              <Monitor size={14} /> {t('settings.system')}
+            </button>
+          </div>
+        </section>
+
+        {/* ── Sprache ─────────────────────────────────────── */}
+        <section className="settings-card">
+          <p className="section-title"><Globe size={16} /> {t('settings.language')}</p>
+          <div className="sp-theme-switcher" style={{ justifyContent: 'flex-start' }}>
+            <button
+              className={`sp-theme-btn ${lang === 'de' ? 'active' : ''}`}
+              onClick={() => setLanguage('de')}
+            >
+              DE
+            </button>
+            <button
+              className={`sp-theme-btn ${lang === 'en' ? 'active' : ''}`}
+              onClick={() => setLanguage('en')}
+            >
+              EN
             </button>
           </div>
         </section>
 
         {/* ── Daten ───────────────────────────────────────── */}
         <section className="settings-card">
-          <p className="section-title"><Trash2 size={16} /> Daten</p>
+          <p className="section-title"><Trash2 size={16} /> {t('settings.data')}</p>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.75rem' }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>Quiz-Verlauf</div>
+              <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{t('settings.quizHistory')}</div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                {historyCount} {historyCount === 1 ? 'Quiz' : 'Quizze'} gespeichert
+                {t('settings.quizzesSaved', { count: historyCount, label: historyCount === 1 ? t('settings.quizSingular') : t('settings.quizPlural') })}
               </div>
             </div>
             {!confirmClearHistory ? (
@@ -206,19 +226,19 @@ export default function SettingsPage() {
                 onClick={() => setConfirmClearHistory(true)}
                 disabled={historyCount === 0}
               >
-                <Trash2 size={14} /> Löschen
+                <Trash2 size={14} /> {t('common.delete')}
               </button>
             ) : (
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button className="btn btn-ghost btn-sm" onClick={() => setConfirmClearHistory(false)}>
-                  Abbrechen
+                  {t('common.cancel')}
                 </button>
                 <button
                   className="btn btn-sm"
                   style={{ background: 'var(--error)', color: '#fff' }}
                   onClick={handleClearHistory}
                 >
-                  Endgültig löschen
+                  {t('settings.deleteForever')}
                 </button>
               </div>
             )}
@@ -228,9 +248,9 @@ export default function SettingsPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>Komplett zurücksetzen</div>
+              <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{t('settings.fullReset')}</div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                Client ID, Login und alle lokalen Daten löschen
+                {t('settings.fullResetDesc')}
               </div>
             </div>
             {!confirmReset ? (
@@ -239,19 +259,19 @@ export default function SettingsPage() {
                 style={{ color: 'var(--error)', fontSize: '0.82rem' }}
                 onClick={() => setConfirmReset(true)}
               >
-                Zurücksetzen
+                {t('settings.reset')}
               </button>
             ) : (
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button className="btn btn-ghost btn-sm" onClick={() => setConfirmReset(false)}>
-                  Abbrechen
+                  {t('common.cancel')}
                 </button>
                 <button
                   className="btn btn-sm"
                   style={{ background: 'var(--error)', color: '#fff' }}
                   onClick={handleReset}
                 >
-                  Ja, alles löschen
+                  {t('settings.confirmReset')}
                 </button>
               </div>
             )}
@@ -262,16 +282,15 @@ export default function SettingsPage() {
         <section className="settings-card" style={{
           background: 'linear-gradient(135deg, var(--surface) 0%, var(--accent-dim) 100%)',
         }}>
-          <p className="section-title"><Heart size={16} /> Unterstützen</p>
+          <p className="section-title"><Heart size={16} /> {t('settings.supportTitle')}</p>
           <p style={{ fontSize: '0.9rem', marginBottom: '1rem', lineHeight: 1.6 }}>
-            MusicChef ist kostenlos und Open Source. Wenn dir die App gefällt,
-            kannst du das Projekt mit einem kleinen Beitrag unterstützen.
+            {t('settings.supportDesc')}
           </p>
           <button
             className="btn btn-primary"
             onClick={() => navigate('/donate')}
           >
-            <Heart size={16} /> Zur Spendenseite
+            <Heart size={16} /> {t('settings.goToDonate')}
           </button>
         </section>
 
@@ -282,7 +301,7 @@ export default function SettingsPage() {
             style={{ color: 'var(--error)' }}
             onClick={logout}
           >
-            <LogOut size={16} /> Abmelden
+            <LogOut size={16} /> {t('settings.logout')}
           </button>
         </div>
       </div>

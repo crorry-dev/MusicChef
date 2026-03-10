@@ -4,6 +4,7 @@ import React, {
 } from 'react'
 import { useLocation, useNavigate, Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTranslation } from '../context/LanguageContext'
 import {
   createQuiz, submitQuizAnswer, GUESS_FIELDS, getSpeedTier,
   extractTrackFromSdkState, generateStreamChoices,
@@ -15,6 +16,7 @@ import {
   pause as sdkPause,
   resume as sdkResume,
   seek as sdkSeek,
+  setVolume as sdkSetVolume,
   onStateChange as sdkOnStateChange,
   onConnectionChange as sdkOnConnectionChange,
   reconnect as sdkReconnect,
@@ -34,32 +36,28 @@ import GenreIcon from '../components/GenreIcon'
 import {
   MusicNote, Music, Mic, Calendar, Timer, Star, Lock, Check, XCircle,
   CheckCircle, Trophy, AlertTriangle, Play, Pause, SkipForward, X, Info,
+  Volume2, Volume1, VolumeX,
 } from '../lib/icons'
 
 const PREVIEW_DURATION = 30
 
 /* ── Loading messages ─────────────────────────────────────── */
-const LOADING_MSGS = [
-  'Mische die Tracks…',
-  'Suche Interpreten…',
-  'Lade Vorschauen…',
-  'Stelle Fragen zusammen…',
-  'Fast fertig…',
-  'Bereite Auswahlmöglichkeiten vor…',
-  'Verbinde Spotify Player…',
-  'Gleich gehts los…',
+const LOADING_MSG_KEYS = [
+  'quizLoad.msg1', 'quizLoad.msg2', 'quizLoad.msg3', 'quizLoad.msg4',
+  'quizLoad.msg5', 'quizLoad.msg6', 'quizLoad.msg7', 'quizLoad.msg8',
 ]
 
 /* ═══════════════════════════════════════════════════════════
    Quiz Loading Screen
    ═══════════════════════════════════════════════════════════ */
 function QuizLoadingScreen() {
+  const { t } = useTranslation()
   const [msgIndex, setMsgIndex] = useState(0)
   const [progress, setProgress] = useState(0)
 
   useEffect(() => {
     const msgTimer = setInterval(() => {
-      setMsgIndex((i) => (i + 1) % LOADING_MSGS.length)
+      setMsgIndex((i) => (i + 1) % LOADING_MSG_KEYS.length)
     }, 2200)
     const progTimer = setInterval(() => {
       setProgress((p) => Math.min(p + Math.random() * 12 + 3, 92))
@@ -70,11 +68,11 @@ function QuizLoadingScreen() {
   return (
     <div className="quiz-loading-screen">
       <div className="quiz-loading-icon"><MusicNote size={40} /></div>
-      <h2 className="quiz-loading-title">Quiz wird erstellt</h2>
+      <h2 className="quiz-loading-title">{t('quiz.creating')}</h2>
       <div className="quiz-loading-bar-wrap">
         <div className="quiz-loading-bar-fill" style={{ width: `${progress}%` }} />
       </div>
-      <p className="quiz-loading-msg">{LOADING_MSGS[msgIndex]}</p>
+      <p className="quiz-loading-msg">{t(LOADING_MSG_KEYS[msgIndex])}</p>
     </div>
   )
 }
@@ -86,6 +84,7 @@ const PlayerBar = forwardRef(function PlayerBar(
   { trackId, previewUrl, sdkReady, sdkError, onSkip, canSkip, onTrackEnd, contextMode, durationMs },
   ref,
 ) {
+  const { t } = useTranslation()
   const audioRef = useRef(null)
   const animRef = useRef(null)
   const pbModeRef = useRef(null)
@@ -106,6 +105,12 @@ const PlayerBar = forwardRef(function PlayerBar(
   const [pbMode, setPbMode] = useState(null)
   const [noDevice, setNoDevice] = useState(false)
   const [retryConnect, setRetryConnect] = useState(0)
+  const [volume, setVolume] = useState(() => {
+    const saved = localStorage.getItem('mc_volume')
+    return saved !== null ? parseFloat(saved) : 0.8
+  })
+  const [muted, setMuted] = useState(false)
+  const prevVolumeRef = useRef(0.8)
 
   function setMode(m) { pbModeRef.current = m; setPbMode(m) }
 
@@ -227,6 +232,14 @@ const PlayerBar = forwardRef(function PlayerBar(
 
   useEffect(() => { animRef.current = requestAnimationFrame(syncPos); return () => cancelAnimationFrame(animRef.current) }, [syncPos])
 
+  /* Sync volume whenever mode changes */
+  useEffect(() => {
+    const v = muted ? 0 : volume
+    if (pbMode === 'sdk') sdkSetVolume(v)
+    const a = audioRef.current
+    if (a) a.volume = v
+  }, [pbMode, volume, muted])
+
   /* Track change → start playback */
   useEffect(() => {
     const a = audioRef.current
@@ -321,13 +334,44 @@ const PlayerBar = forwardRef(function PlayerBar(
     setSeeking(false)
   }, [])
 
+  const handleVolumeChange = useCallback((e) => {
+    const v = parseFloat(e.target.value)
+    setVolume(v)
+    setMuted(v === 0)
+    localStorage.setItem('mc_volume', String(v))
+    if (pbModeRef.current === 'sdk') sdkSetVolume(v)
+    const a = audioRef.current
+    if (a) a.volume = v
+  }, [])
+
+  const handleToggleMute = useCallback(() => {
+    if (muted) {
+      const restored = prevVolumeRef.current > 0 ? prevVolumeRef.current : 0.5
+      setVolume(restored)
+      setMuted(false)
+      localStorage.setItem('mc_volume', String(restored))
+      if (pbModeRef.current === 'sdk') sdkSetVolume(restored)
+      const a = audioRef.current
+      if (a) a.volume = restored
+    } else {
+      prevVolumeRef.current = volume
+      setVolume(0)
+      setMuted(true)
+      localStorage.setItem('mc_volume', '0')
+      if (pbModeRef.current === 'sdk') sdkSetVolume(0)
+      const a = audioRef.current
+      if (a) a.volume = 0
+    }
+  }, [muted, volume])
+
   const fmt = (s) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`
   const pct = duration > 0 ? (currentTime / duration) * 100 : 0
+  const VolumeIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2
 
   return (
     <div className="player-bar">
       <audio ref={audioRef} preload="auto" playsInline style={{ display: 'none' }} />
-      <button className="pb-btn pb-play" onClick={togglePlay} disabled={!pbMode} aria-label={playing ? 'Pause' : 'Abspielen'}>
+      <button className="pb-btn pb-play" onClick={togglePlay} disabled={!pbMode} aria-label={playing ? t('quiz.pause') : t('quiz.play')}>
         {playing ? <Pause size={18} /> : <Play size={18} />}
       </button>
       <span className="pb-time">{fmt(currentTime)}</span>
@@ -338,42 +382,52 @@ const PlayerBar = forwardRef(function PlayerBar(
           disabled={!pbMode} aria-label="Seek" />
       </div>
       <span className="pb-time">{fmt(duration)}</span>
-      {canSkip && <button className="pb-btn pb-skip" onClick={onSkip} aria-label="Überspringen"><SkipForward size={18} /></button>}
+      {canSkip && <button className="pb-btn pb-skip" onClick={onSkip} aria-label={t('quiz.skip')}><SkipForward size={18} /></button>}
+      <div className="pb-volume-wrap">
+        <button className="pb-btn pb-volume-btn" onClick={handleToggleMute} aria-label={muted ? t('quiz.unmute') : t('quiz.mute')}>
+          <VolumeIcon size={16} />
+        </button>
+        <div className="pb-volume-slider-wrap">
+          <div className="pb-volume-track"><div className="pb-volume-fill" style={{ width: `${volume * 100}%` }} /></div>
+          <input className="pb-volume-input" type="range" min={0} max={1} step={0.01} value={volume}
+            onChange={handleVolumeChange} aria-label={t('quiz.volume')} />
+        </div>
+      </div>
       {!pbMode && !sdkReady && !sdkError && trackId && !isMobile() && (
-        <span className="pb-connecting"><span className="spinner spinner-sm" /> Verbinde…</span>
+        <span className="pb-connecting"><span className="spinner spinner-sm" /> {t('quiz.connecting')}</span>
       )}
       {!pbMode && isMobile() && noDevice && (
         <span className="pb-no-preview" style={{ fontSize: '0.75rem' }}>
-          Starte Spotify (App oder <a href="https://open.spotify.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>Web Player</a>)
+          {t('quiz.startSpotify', { link: '' })}<a href="https://open.spotify.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>{t('quiz.webPlayer')}</a>
           <button
             className="btn btn-ghost btn-sm"
             style={{ marginLeft: '0.5rem', fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
             onClick={() => { setNoDevice(false); clearMobileDevice(); setRetryConnect((n) => n + 1) }}
           >
-            Erneut versuchen
+            {t('quiz.retry')}
           </button>
         </span>
       )}
       {!pbMode && isMobile() && !noDevice && !previewUrl && trackId && (
-        <span className="pb-connecting"><span className="spinner spinner-sm" /> Verbinde…</span>
+        <span className="pb-connecting"><span className="spinner spinner-sm" /> {t('quiz.connecting')}</span>
       )}
       {!pbMode && !isMobile() && (sdkError) && !previewUrl && (
         <span className="pb-no-preview" style={{ fontSize: '0.75rem' }}>
-          Wiedergabe fehlgeschlagen.{' '}
+          {t('quiz.playbackFailed')}{' '}
           <button
             className="btn btn-ghost btn-sm"
             style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
             onClick={() => setRetryConnect((n) => n + 1)}
           >
-            Erneut versuchen
+            {t('quiz.retry')}
           </button>{' '}
-          oder <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
-            onClick={() => window.location.reload()}>Seite neu laden</button>
+          <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
+            onClick={() => window.location.reload()}>{t('quiz.reloadPage')}</button>
         </span>
       )}
       {!pbMode && !sdkError && sdkReady && !previewUrl && !isMobile() && (
         <span className="pb-no-preview" style={{ fontSize: '0.75rem' }}>
-          Kein Gerät erkannt.{' '}
+          {t('quiz.noDevice')}{' '}
           <button
             className="btn btn-ghost btn-sm"
             style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
@@ -383,10 +437,10 @@ const PlayerBar = forwardRef(function PlayerBar(
                 .catch(() => {})
             }}
           >
-            Neu verbinden
+            {t('quiz.reconnect')}
           </button>{' '}
-          oder <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
-            onClick={() => window.location.reload()}>Seite neu laden</button>
+          <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
+            onClick={() => window.location.reload()}>{t('quiz.reloadPage')}</button>
         </span>
       )}
     </div>
@@ -397,13 +451,14 @@ const PlayerBar = forwardRef(function PlayerBar(
    Feedback Banner
    ═══════════════════════════════════════════════════════════ */
 function FeedbackBanner({ result, guessFields }) {
+  const { t } = useTranslation()
   const fr = result.fieldResults ?? {}
   const allCorrect = Object.values(fr).every((f) => f.correct)
   const someCorrect = Object.values(fr).some((f) => f.correct)
 
-  let type = 'wrong', title = 'Leider falsch!'
-  if (allCorrect) { type = 'correct'; title = 'Perfekt!' }
-  else if (someCorrect) { type = 'partial'; title = 'Fast richtig!' }
+  let type = 'wrong', title = t('quiz.wrong')
+  if (allCorrect) { type = 'correct'; title = t('quiz.perfect') }
+  else if (someCorrect) { type = 'partial'; title = t('quiz.almost') }
   const fbIcon = type === 'correct' ? <CheckCircle size={24} /> : type === 'partial' ? <AlertTriangle size={24} /> : <XCircle size={24} />
 
   const ppf = Math.round(100 / (guessFields?.length || 2))
@@ -441,10 +496,11 @@ function FeedbackBanner({ result, guessFields }) {
    Multiple Choice Panel
    ═══════════════════════════════════════════════════════════ */
 function ChoiceField({ field, options, selectedValue, onSelect, correctValue, answered, fieldResult, showKeys }) {
+  const { t } = useTranslation()
   const cfgMap = {
-    artist: { label: 'Interpret', Icon: Mic },
-    title: { label: 'Titel', Icon: Music },
-    year: { label: 'Jahr', Icon: Calendar },
+    artist: { label: t('quiz.artist'), Icon: Mic },
+    title: { label: t('quiz.title'), Icon: Music },
+    year: { label: t('quiz.year'), Icon: Calendar },
   }
   const cfg = cfgMap[field] ?? { label: field, Icon: Music }
 
@@ -490,6 +546,7 @@ export default function QuizPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout } = useAuth()
+  const { t } = useTranslation()
   const quizConfig = location.state
 
   const [quizId, setQuizId] = useState(null)
@@ -601,7 +658,7 @@ export default function QuizPage() {
       })
       .catch((e) => {
         if (cancelled) return
-        setError(e.message || 'Quiz konnte nicht geladen werden.')
+        setError(e.message || t('quiz.quizLoadFailed'))
         setLoading(false)
       })
     return () => { cancelled = true }
@@ -629,7 +686,7 @@ export default function QuizPage() {
 
         if (cancelled) return
         const sdkTrack = extractTrackFromSdkState(state)
-        if (!sdkTrack) throw new Error('Kein Track in der Playlist verfügbar')
+        if (!sdkTrack) throw new Error(t('quiz.noTrackInPlaylist'))
 
         /* Duplikat-Erkennung */
         streamSeenIdsRef.current.add(sdkTrack.id)
@@ -657,7 +714,7 @@ export default function QuizPage() {
         }
       } catch (e) {
         if (!cancelled) {
-          setError(e.message || 'Playlist konnte nicht gestartet werden')
+          setError(e.message || t('quiz.playlistStartFailed'))
           setLoading(false)
         }
       }
@@ -669,8 +726,7 @@ export default function QuizPage() {
   useEffect(() => {
     if (!streamPending || !sdkError) return
     setError(
-      'Spotify Web Playback SDK wird benötigt, um Playlists im Development Mode abzuspielen. ' +
-      'Bitte nutze einen Desktop-Browser mit Spotify Premium, oder wechsle zum Genre-Modus.',
+      t('quiz.sdkNeeded'),
     )
     setLoading(false)
   }, [streamPending, sdkError])
@@ -709,7 +765,7 @@ export default function QuizPage() {
       setAnswered(true)
       setRevealed(true)
     } catch (e) {
-      setError(e.message || 'Fehler beim Absenden.')
+      setError(e.message || t('quiz.errorSubmit'))
     } finally {
       setSubmitting(false)
     }
@@ -734,7 +790,7 @@ export default function QuizPage() {
       }
 
       const sdkTrack = extractTrackFromSdkState(state)
-      if (!sdkTrack) throw new Error('Kein weiterer Track verfügbar')
+      if (!sdkTrack) throw new Error(t('quiz.nextTrackFailed'))
 
       /* Duplikat → Playlist durchgelaufen → Quiz beenden */
       if (streamSeenIdsRef.current.has(sdkTrack.id)) {
@@ -771,7 +827,7 @@ export default function QuizPage() {
       }
       setCurrentQuestion(q)
     } catch (e) {
-      setError(e.message || 'Nächster Track konnte nicht geladen werden')
+      setError(e.message || t('quiz.nextTrackFailed'))
     } finally {
       setStreamLoading(false)
     }
@@ -896,16 +952,16 @@ export default function QuizPage() {
   if (loading) return <QuizLoadingScreen />
 
   if (error) {
-    const isAuthError = error.includes('einloggen') || error.includes('abgelaufen') || error.includes('authentifiziert') || error.includes('Sitzung')
-    const is403Error = error.includes('403') || error.includes('verweigert')
+    const isAuthError = error.includes('einloggen') || error.includes('abgelaufen') || error.includes('authentifiziert') || error.includes('Sitzung') || error.includes('log in') || error.includes('expired') || error.includes('session')
+    const is403Error = error.includes('403') || error.includes('verweigert') || error.includes('denied')
     const showRelogin = isAuthError || is403Error
     return (
       <div className="container" style={{ paddingTop: '3rem', textAlign: 'center' }}>
         <div className="error-box" style={{ justifyContent: 'center', marginBottom: '1.5rem' }}><AlertTriangle size={16} /> {error}</div>
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to="/home" className="btn btn-secondary">Zurück</Link>
+          <Link to="/home" className="btn btn-secondary">{t('quiz.back')}</Link>
           {showRelogin && (
-            <button className="btn btn-primary" onClick={() => { logout(); }}>Neu einloggen</button>
+            <button className="btn btn-primary" onClick={() => { logout(); }}>{t('quiz.relogin')}</button>
           )}
         </div>
       </div>
@@ -915,8 +971,8 @@ export default function QuizPage() {
   if (!currentQuestion) {
     return (
       <div className="container" style={{ paddingTop: '3rem', textAlign: 'center' }}>
-        <p className="text-muted">Keine Fragen verfügbar.</p>
-        <Link to="/home" className="btn btn-secondary" style={{ marginTop: '1rem' }}>Zurück</Link>
+        <p className="text-muted">{t('quiz.noQuestions')}</p>
+        <Link to="/home" className="btn btn-secondary" style={{ marginTop: '1rem' }}>{t('quiz.back')}</Link>
       </div>
     )
   }
@@ -935,9 +991,9 @@ export default function QuizPage() {
   }
 
   const fieldConfig = {
-    artist: { label: 'Interpret', placeholder: 'z.B. Taylor Swift', type: 'text', Icon: Mic },
-    title: { label: 'Titel', placeholder: 'z.B. Shake It Off', type: 'text', Icon: Music },
-    year: { label: 'Jahr', placeholder: 'z.B. 2014', type: 'text', inputMode: 'numeric', Icon: Calendar },
+    artist: { label: t('quiz.artist'), placeholder: t('quiz.artistPlaceholder'), type: 'text', Icon: Mic },
+    title: { label: t('quiz.title'), placeholder: t('quiz.titlePlaceholder'), type: 'text', Icon: Music },
+    year: { label: t('quiz.year'), placeholder: t('quiz.yearPlaceholder'), type: 'text', inputMode: 'numeric', Icon: Calendar },
   }
 
   const currentTrack = quizRef.current?.tracks?.[currentQuestion.index]
@@ -956,7 +1012,7 @@ export default function QuizPage() {
                 <Timer size={14} /> {elapsed}s
               </div>
             )}
-            <button className="btn btn-ghost btn-sm" onClick={() => { playerRef.current?.stop(); sdkDisconnect(); navigate('/home') }}><X size={16} /> Beenden</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => { playerRef.current?.stop(); sdkDisconnect(); navigate('/home') }}><X size={16} /> {t('quiz.end')}</button>
           </div>
         </div>
       </nav>
@@ -970,7 +1026,7 @@ export default function QuizPage() {
             padding: '0.6rem 1rem', borderRadius: '8px', marginBottom: '0.75rem', fontSize: '0.88rem',
           }}>
             <AlertTriangle size={16} />
-            <span>Spotify-Verbindung unterbrochen.</span>
+            <span>{ t('quiz.sdkDisconnected')}</span>
             <button
               className="btn btn-primary btn-sm"
               disabled={sdkReconnecting}
@@ -981,18 +1037,18 @@ export default function QuizPage() {
                   .catch(() => setSdkReconnecting(false))
               }}
             >
-              {sdkReconnecting ? 'Verbinde…' : 'Neu verbinden'}
+              {sdkReconnecting ? t('quiz.reconnecting') : t('quiz.reconnect')}
             </button>
           </div>
         )}
         <div className="quiz-header">
           <div className="quiz-progress-info">
-            <div className="quiz-progress-label">Frage {questionNumber} von {totalQuestions}</div>
+            <div className="quiz-progress-label">{t('quiz.question', { num: questionNumber, total: totalQuestions })}</div>
             <div className="progress-bar-wrapper">
               <div className="progress-bar-fill" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
-          <div className="quiz-score-badge"><Star size={16} /> {score} Pkt.</div>
+          <div className="quiz-score-badge"><Star size={16} /> {score} {t('quiz.pts')}</div>
         </div>
 
         {trackCountWarning && (
@@ -1010,7 +1066,7 @@ export default function QuizPage() {
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
             padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.95rem',
           }}>
-            <span className="spinner spinner-sm" /> Nächster Track wird geladen…
+            <span className="spinner spinner-sm" /> {t('quiz.nextTrackLoading')}
           </div>
         )}
 
@@ -1049,7 +1105,7 @@ export default function QuizPage() {
                 marginBottom: '1.25rem', color: 'var(--text-muted)',
                 fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.08em',
               }}>
-                {inputMode === 'choice' ? 'Wähle die richtige Antwort' : 'Wer singt diesen Song?'}
+                {inputMode === 'choice' ? t('quiz.chooseAnswer') : t('quiz.whoSings')}
               </h3>
 
               {/* ── Choice Mode ────────────────────────────── */}
@@ -1110,7 +1166,7 @@ export default function QuizPage() {
                       disabled={submitting || !Object.values(fieldInputs).some((v) => v?.trim())}
                       style={{ marginTop: '0.25rem' }}
                     >
-                      {submitting ? <><span className="spinner spinner-sm" /> Wird überprüft…</> : <><Check size={16} /> Antwort abschicken</>}
+                      {submitting ? <><span className="spinner spinner-sm" /> {t('quiz.checking')}</> : <><Check size={16} /> {t('quiz.submitAnswer')}</>}
                     </button>
                   )}
                 </div>
@@ -1121,23 +1177,23 @@ export default function QuizPage() {
 
             {answered && (
               <button className="btn btn-primary btn-lg" onClick={handleNext} style={{ width: '100%' }}>
-                {feedbackResult?.finished ? <><Trophy size={18} /> Ergebnis anzeigen</> : 'Weiter →'}
+                {feedbackResult?.finished ? <><Trophy size={18} /> {t('quiz.showResults')}</> : t('quiz.next')}
               </button>
             )}
 
             {!answered && inputMode === 'freetext' && (
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                Enter = Absenden  ·  Leertaste = Play/Pause
+                {t('quiz.enterSubmit')}
               </p>
             )}
             {!answered && inputMode === 'choice' && (
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                1-4 = Auswahl  ·  Leertaste = Play/Pause
+                {t('quiz.choiceKeys')}
               </p>
             )}
             {answered && (
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                Enter = Nächste Frage  ·  Leertaste = Play/Pause
+                {t('quiz.enterNext')}
               </p>
             )}
           </div>

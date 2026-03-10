@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTranslation } from '../context/LanguageContext'
 import { getGenresList, getRegionsList } from '../lib/genres'
 import { fetchUserPlaylists, getCachedPlaylists, checkPlaylistAccess } from '../lib/spotify-api'
 import Navbar from '../components/Navbar'
@@ -17,6 +18,7 @@ export default function HomePage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useTranslation()
 
   /* ── Source state ─────────────────────────────────────────── */
   const [playlists, setPlaylists] = useState(() => getCachedPlaylists() ?? [])
@@ -179,11 +181,11 @@ export default function HomePage() {
       if (!access.accessible) {
         setStartingQuiz(false)
         if (access.reason === 'private') {
-          setStartError(`„${selectedPlaylist.name}" ist nicht zugänglich – die Playlist ist privat oder wurde entfernt.`)
+          setStartError(`${t('home.playlistPrivate', { name: selectedPlaylist.name })}`)
         } else if (access.reason === 'auth') {
-          setStartError('Deine Sitzung ist abgelaufen – bitte melde dich erneut an.')
+          setStartError(t('home.sessionExpired'))
         } else {
-          setStartError(access.message || 'Playlist konnte nicht geladen werden.')
+          setStartError(access.message || t('home.playlistLoadFailed'))
         }
         return
       }
@@ -214,9 +216,9 @@ export default function HomePage() {
   const selectionLabel = selectedPlaylist
     ? selectedPlaylist.name
     : selectedGenres.length > 3
-      ? `${selectedGenres.slice(0, 3).map((g) => g.name).join(', ')} +${selectedGenres.length - 3}`
+      ? `${selectedGenres.slice(0, 3).map((g) => g.id === '__random__' ? t('home.random') : g.name).join(', ')} +${selectedGenres.length - 3}`
       : selectedGenres.length > 0
-        ? selectedGenres.map((g) => g.name).join(', ')
+        ? selectedGenres.map((g) => g.id === '__random__' ? t('home.random') : g.name).join(', ')
         : null
 
   return (
@@ -235,8 +237,8 @@ export default function HomePage() {
             </div>
           )}
           <div className="home-greeting">
-            <h2>Hallo, {user?.display_name || 'Musiker'}!</h2>
-            <p>Wähle deine Musik und starte das Quiz.</p>
+            <h2>{t('home.hello', { name: user?.display_name || 'Musiker' })}</h2>
+            <p>{t('home.chooseMusic')}</p>
           </div>
         </div>
 
@@ -246,13 +248,13 @@ export default function HomePage() {
             className={`source-tab ${tab === 'genre' ? 'active' : ''}`}
             onClick={() => setTab('genre')}
           >
-            <Music size={16} /> Genres
+            <Music size={16} /> {t('home.genres')}
           </button>
           <button
             className={`source-tab ${tab === 'playlist' ? 'active' : ''}`}
             onClick={() => setTab('playlist')}
           >
-            <ListMusic size={16} /> Playlists
+            <ListMusic size={16} /> {t('home.playlists')}
             {!loadingPlaylists && playlists.length > 0 && (
               <span className="tab-badge">{playlists.length}</span>
             )}
@@ -267,7 +269,7 @@ export default function HomePage() {
               <input
                 className="genre-search-input"
                 type="text"
-                placeholder="Genre suchen…"
+                placeholder={t('home.searchGenre')}
                 value={genreSearch}
                 onChange={(e) => setGenreSearch(e.target.value)}
                 autoComplete="off"
@@ -277,7 +279,7 @@ export default function HomePage() {
                 <button
                   className="genre-search-clear"
                   onClick={() => setGenreSearch('')}
-                  aria-label="Suche leeren"
+                  aria-label={t('home.clearSearch')}
                 >
                   &times;
                 </button>
@@ -315,7 +317,7 @@ export default function HomePage() {
               onClick={() => handleGenreSelect({ id: '__random__', name: 'Zufällig' })}
             >
               <span className="genre-icon-wrap"><Shuffle size={20} /></span>
-              <span className="genre-name">Zufällig</span>
+              <span className="genre-name">{t('home.random')}</span>
             </div>
             {genres.map((g) => (
               <div
@@ -339,7 +341,7 @@ export default function HomePage() {
                 <input
                   className="genre-search-input"
                   type="text"
-                  placeholder="Playlist suchen…"
+                  placeholder={t('home.searchPlaylist')}
                   value={playlistSearch}
                   onChange={(e) => setPlaylistSearch(e.target.value)}
                   autoComplete="off"
@@ -349,7 +351,7 @@ export default function HomePage() {
                   <button
                     className="genre-search-clear"
                     onClick={() => setPlaylistSearch('')}
-                    aria-label="Suche leeren"
+                    aria-label={t('home.clearSearch')}
                   >
                     &times;
                   </button>
@@ -359,33 +361,33 @@ export default function HomePage() {
           <div className="playlist-grid">
             {loadingPlaylists ? (
               <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
-                <p className="text-muted" style={{ marginBottom: '1rem' }}>Playlists werden geladen…</p>
+                <p className="text-muted" style={{ marginBottom: '1rem' }}>{t('home.playlistsLoading')}</p>
                 <div className="progress-bar-wrapper" style={{ maxWidth: '260px', margin: '0 auto' }}>
                   <div className="progress-bar-fill progress-bar-indeterminate" />
                 </div>
               </div>
             ) : playlistError ? (
               <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
-                <p className="text-muted" style={{ marginBottom: '0.75rem' }}>Playlists konnten nicht geladen werden.</p>
+                <p className="text-muted" style={{ marginBottom: '0.75rem' }}>{t('home.playlistsFailed')}</p>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
                   {playlistError}
                 </p>
                 <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
                   <button className="btn btn-primary btn-sm" onClick={loadPlaylists}>
-                    Erneut versuchen
+                    {t('common.retry')}
                   </button>
                   <button className="btn btn-secondary btn-sm" onClick={() => { logout(); }}>
-                    Neu einloggen
+                    {t('common.relogin')}
                   </button>
                 </div>
               </div>
             ) : playlists.length === 0 ? (
               <p className="text-muted" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
-                Du hast noch keine Spotify-Playlists.
+{t('home.noPlaylists')}
               </p>
             ) : filteredPlaylists.length === 0 ? (
               <p className="text-muted" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
-                Keine Playlists gefunden.
+{t('home.noPlaylistsFound')}
               </p>
             ) : (
               filteredPlaylists.map((pl) => (
@@ -402,10 +404,10 @@ export default function HomePage() {
                   <div className="playlist-info">
                     <div className="playlist-name">{pl.name}</div>
                     <div className="playlist-tracks">
-                      {pl.tracks > 0 && `${pl.tracks} Titel`}
+                      {pl.tracks > 0 && `${pl.tracks} ${t('common.tracks')}`}
                       {pl.tracks > 0 && pl.ownerName && user?.id && pl.ownerId !== user.id && ' · '}
                       {pl.ownerName && user?.id && pl.ownerId !== user.id && (
-                        <span className="playlist-owner">von {pl.ownerName}</span>
+                        <span className="playlist-owner">{t('home.by')} {pl.ownerName}</span>
                       )}
                     </div>
                   </div>
@@ -418,10 +420,10 @@ export default function HomePage() {
 
         {/* ── Settings Card ─────────────────────────────────── */}
         <div className="settings-card">
-          <p className="section-title"><Settings size={16} /> Quiz-Einstellungen</p>
+          <p className="section-title"><Settings size={16} /> {t('home.quizSettings')}</p>
 
-          {/* ── Question Count ──────────────────────────────── */}
-          <label className="setting-label">Anzahl Fragen</label>
+          {/* ── Question Count ──────────────────────────────────────── */}
+          <label className="setting-label">{t('home.questionCount')}</label>
 
           {selectedPlaylist?.tracks > 0 && (
             <button
@@ -431,9 +433,9 @@ export default function HomePage() {
             >
               {useAllTracks
                 ? <>
-                    <CheckCircle size={14} /> Alle {Math.min(selectedPlaylist.tracks, 1000)} Tracks
+                    <CheckCircle size={14} /> {t('home.allTracks', { count: Math.min(selectedPlaylist.tracks, 1000) })}
                   </>
-                : `Alle Tracks spielen (${Math.min(selectedPlaylist.tracks, 1000)})`}
+                : t('home.playAllTracks', { count: Math.min(selectedPlaylist.tracks, 1000) })}
             </button>
           )}
 
@@ -465,12 +467,12 @@ export default function HomePage() {
           )}
 
           {/* ── Guess Fields ────────────────────────────────── */}
-          <label className="setting-label" style={{ marginTop: '1.25rem' }}>Was erraten?</label>
+          <label className="setting-label" style={{ marginTop: '1.25rem' }}>{t('home.whatToGuess')}</label>
           <div className="field-toggles">
             {[
-              { id: 'artist', label: 'Interpret', Icon: Mic },
-              { id: 'title', label: 'Titel', Icon: Music },
-              { id: 'year', label: 'Jahr', Icon: Calendar },
+              { id: 'artist', label: t('home.artist'), Icon: Mic },
+              { id: 'title', label: t('home.title'), Icon: Music },
+              { id: 'year', label: t('home.year'), Icon: Calendar },
             ].map((f) => (
               <button
                 key={f.id}
@@ -483,87 +485,87 @@ export default function HomePage() {
           </div>
 
           {/* ── Input Mode ──────────────────────────────────── */}
-          <label className="setting-label" style={{ marginTop: '1.25rem' }}>Eingabemodus</label>
+          <label className="setting-label" style={{ marginTop: '1.25rem' }}>{t('home.inputMode')}</label>
           <div className="field-toggles">
             <button
               className={`field-toggle ${inputMode === 'freetext' ? 'selected' : ''}`}
               onClick={() => setInputMode('freetext')}
             >
-              <Edit3 size={14} /> Freitext
+              <Edit3 size={14} /> {t('home.freetext')}
             </button>
             <button
               className={`field-toggle ${inputMode === 'choice' ? 'selected' : ''}`}
               onClick={() => setInputMode('choice')}
             >
-              <Circle size={14} /> 4 Auswahlmöglichkeiten
+              <Circle size={14} /> {t('home.choice')}
             </button>
           </div>
 
           {/* ── Game Modes ──────────────────────────────────── */}
-          <label className="setting-label" style={{ marginTop: '1.25rem' }}>Spielmodi</label>
+          <label className="setting-label" style={{ marginTop: '1.25rem' }}>{t('home.gameModes')}</label>
           <div className="field-toggles">
             <button
               className={`field-toggle ${speedBonus ? 'selected' : ''}`}
               onClick={() => setSpeedBonus((v) => !v)}
             >
-              <Zap size={14} /> Speed-Bonus
+              <Zap size={14} /> {t('home.speedBonus')}
             </button>
           </div>
           {speedBonus && (
             <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: '0.35rem' }}>
-              Schnellere Antworten = mehr Punkte (bis zu 2x Bonus)
+              {t('home.speedBonusHint')}
             </p>
           )}
 
           {/* ── Cover Mode ──────────────────────────────────── */}
-          <label className="setting-label" style={{ marginTop: '1.25rem' }}>Album-Cover</label>
+          <label className="setting-label" style={{ marginTop: '1.25rem' }}>{t('home.albumCover')}</label>
           <div className="field-toggles">
             <button
               className={`field-toggle ${coverMode === 'none' ? 'selected' : ''}`}
               onClick={() => setCoverMode('none')}
             >
-              <Image size={14} /> Sichtbar
+              <Image size={14} /> {t('home.coverVisible')}
             </button>
             <button
               className={`field-toggle ${coverMode === 'blur' ? 'selected' : ''}`}
               onClick={() => setCoverMode('blur')}
             >
-              <Image size={14} /> Verpixelt
+              <Image size={14} /> {t('home.coverBlur')}
             </button>
             <button
               className={`field-toggle ${coverMode === 'hidden' ? 'selected' : ''}`}
               onClick={() => setCoverMode('hidden')}
             >
-              <Image size={14} /> Versteckt
+              <Image size={14} /> {t('home.coverHidden')}
             </button>
           </div>
           {coverMode === 'blur' && (
             <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: '0.35rem' }}>
-              Cover wird langsam von verpixelt zu scharf – bei richtiger Antwort sofort enthüllt
+              {t('home.coverBlurHint')}
             </p>
           )}
           {coverMode === 'hidden' && (
             <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: '0.35rem' }}>
-              Cover ist komplett verborgen bis zur Auflösung
+              {t('home.coverHiddenHint')}
             </p>
           )}
 
           {/* ── Year Range ──────────────────────────────────── */}
-          <label className="setting-label" style={{ marginTop: '1.25rem' }}>Zeitraum</label>
+          <label className="setting-label" style={{ marginTop: '1.25rem' }}>{t('home.timePeriod')}</label>
           <button
             className={`field-toggle ${yearEnabled ? 'selected' : ''}`}
             onClick={() => setYearEnabled((v) => !v)}
             style={{ marginBottom: yearEnabled ? '0.6rem' : 0 }}
           >
             {yearEnabled
-              ? <><CheckCircle size={14} /> Zeitfilter aktiv</>
-              : <><Calendar size={14} /> Zeitfilter</>}
+              ? <><CheckCircle size={14} /> {t('home.timeFilterActive')}</>
+              : <><Calendar size={14} /> {t('home.timeFilter')}</>}
           </button>
 
           {yearEnabled && (
             <div className="year-range-row">
               <label className="year-label">
-                Von
+                {t('home.from')}
                 <input
                   type="number"
                   className="year-input"
@@ -578,7 +580,7 @@ export default function HomePage() {
               </label>
               <span className="year-dash">–</span>
               <label className="year-label">
-                Bis
+                {t('home.to')}
                 <input
                   type="number"
                   className="year-input"
@@ -596,7 +598,7 @@ export default function HomePage() {
 
           {yearEnabled && selectedPlaylist && (
             <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>
-              Zeitfilter wirkt nur bei Genre- und Zufalls-Modus.
+              {t('home.timeFilterPlaylist')}
             </p>
           )}
         </div>
@@ -614,13 +616,13 @@ export default function HomePage() {
             onClick={handleStartQuiz}
           >
             {startingQuiz ? (
-              <><Loader size={18} className="spin" /> Prüfe Zugriff…</>
+              <><Loader size={18} className="spin" /> {t('home.checkAccess')}</>
             ) : (
               <>
                 <Gamepad2 size={18} />
                 {canStart
-                  ? ` Quiz starten – ${selectionLabel} (${effectiveCount} Fragen)`
-                  : ' Wähle ein Genre oder eine Playlist'}
+                  ? ` ${t('home.startQuiz', { selection: selectionLabel, count: effectiveCount })}`
+                  : ` ${t('home.chooseGenre')}`}
               </>
             )}
           </button>

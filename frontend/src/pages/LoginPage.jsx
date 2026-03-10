@@ -1,5 +1,6 @@
 import React from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useTranslation } from '../context/LanguageContext'
 import {
   MusicNote,
   Guitar,
@@ -18,6 +19,7 @@ import {
 
 export default function LoginPage() {
   const { login, resetSetup } = useAuth()
+  const { t, lang, setLanguage } = useTranslation()
 
   return (
     <div className="landing-page">
@@ -34,30 +36,33 @@ export default function LoginPage() {
           <div className="landing-brand-icon"><MusicNote size={22} /></div>
           <span className="landing-brand-text">MusicChef</span>
         </div>
+        <div className="sp-theme-switcher" style={{ gap: '0.25rem' }}>
+          <button className={`sp-theme-btn ${lang === 'de' ? 'active' : ''}`} onClick={() => setLanguage('de')} style={{ padding: '0.25rem 0.6rem', fontSize: '0.78rem' }}><span>DE</span></button>
+          <button className={`sp-theme-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLanguage('en')} style={{ padding: '0.25rem 0.6rem', fontSize: '0.78rem' }}><span>EN</span></button>
+        </div>
       </header>
 
       {/* ── Hero ───────────────────────────────────────────── */}
       <main className="landing-main">
         <section className="landing-hero">
           <div className="landing-hero-badge">
-            <Zap size={14} /> Musik-Quiz
+            <Zap size={14} /> {t('login.badge')}
           </div>
           <h1 className="landing-hero-title">
-            Wie gut kennst du<br />
-            <span className="gradient-text">deine Musik?</span>
+            {t('login.title1')}<br />
+            <span className="gradient-text">{t('login.title2')}</span>
           </h1>
           <p className="landing-hero-sub">
-            Teste dein Wissen mit Songs direkt aus Spotify.
-            Erkenne Interpret, Titel und Erscheinungsjahr – gegen die Uhr.
+            {t('login.subtitle')}
           </p>
 
           <button className="landing-cta" onClick={login}>
             <SpotifyLogo size={22} />
-            <span>Mit Spotify starten</span>
+            <span>{t('login.cta')}</span>
           </button>
 
           <p className="landing-hint">
-            Kostenlos mit deinem Spotify-Account. Keine Daten werden gespeichert.
+            {t('login.hint')}
           </p>
         </section>
 
@@ -65,59 +70,59 @@ export default function LoginPage() {
         <section className="landing-features">
           <div className="landing-feature-card">
             <div className="landing-feature-icon"><Guitar size={24} /></div>
-            <h3>120+ Genres</h3>
-            <p>Von Afrobeats bis Synthpop – wähle aus über 120 Genres oder deinen eigenen Playlists.</p>
+            <h3>{t('login.feat.genres')}</h3>
+            <p>{t('login.feat.genresDesc')}</p>
           </div>
           <div className="landing-feature-card">
             <div className="landing-feature-icon"><Target size={24} /></div>
-            <h3>Multiple Choice</h3>
-            <p>Wähle zwischen Freitext und Multiple-Choice mit 2–6 Antwortmöglichkeiten.</p>
+            <h3>{t('login.feat.choice')}</h3>
+            <p>{t('login.feat.choiceDesc')}</p>
           </div>
           <div className="landing-feature-card">
             <div className="landing-feature-icon"><Zap size={24} /></div>
-            <h3>Speed Bonus</h3>
-            <p>Antworte schneller für Bonus-Punkte. Blitzschnell gibt's den doppelten Score.</p>
+            <h3>{t('login.feat.speed')}</h3>
+            <p>{t('login.feat.speedDesc')}</p>
           </div>
           <div className="landing-feature-card">
             <div className="landing-feature-icon"><Image size={24} /></div>
-            <h3>Cover Reveal</h3>
-            <p>Das Album-Cover wird Stück für Stück enthüllt – ein visueller Hinweis extra.</p>
+            <h3>{t('login.feat.cover')}</h3>
+            <p>{t('login.feat.coverDesc')}</p>
           </div>
           <div className="landing-feature-card">
             <div className="landing-feature-icon"><Headphones size={24} /></div>
-            <h3>Spotify Playback</h3>
-            <p>Songs werden direkt über die Spotify Web Playback SDK abgespielt.</p>
+            <h3>{t('login.feat.playback')}</h3>
+            <p>{t('login.feat.playbackDesc')}</p>
           </div>
           <div className="landing-feature-card">
             <div className="landing-feature-icon"><Trophy size={24} /></div>
-            <h3>Statistiken</h3>
-            <p>Verfolge deinen Fortschritt, vergleiche Quizzes und verbessere dich.</p>
+            <h3>{t('login.feat.stats')}</h3>
+            <p>{t('login.feat.statsDesc')}</p>
           </div>
         </section>
 
         {/* ── How it works ─────────────────────────────────── */}
         <section className="landing-steps">
-          <h2 className="landing-section-title">So funktioniert's</h2>
+          <h2 className="landing-section-title">{t('login.howTitle')}</h2>
           <div className="landing-steps-grid">
             <div className="landing-step">
               <div className="landing-step-num">1</div>
-              <h4>Genre wählen</h4>
-              <p>Wähle ein oder mehrere Genres oder eine Spotify-Playlist als Quelle.</p>
+              <h4>{t('login.step1title')}</h4>
+              <p>{t('login.step1desc')}</p>
             </div>
             <div className="landing-step">
               <div className="landing-step-num">2</div>
-              <h4>Quiz konfigurieren</h4>
-              <p>Anzahl Fragen, Ratefelder, Eingabemodus und Spielmodi einstellen.</p>
+              <h4>{t('login.step2title')}</h4>
+              <p>{t('login.step2desc')}</p>
             </div>
             <div className="landing-step">
               <div className="landing-step-num">3</div>
-              <h4>Hören & Raten</h4>
-              <p>Der Song spielt – erkenne den Interpreten, Titel oder das Erscheinungsjahr.</p>
+              <h4>{t('login.step3title')}</h4>
+              <p>{t('login.step3desc')}</p>
             </div>
             <div className="landing-step">
               <div className="landing-step-num">4</div>
-              <h4>Ergebnisse</h4>
-              <p>Sieh deine Ergebnisse, lerne aus den Fehlern und werde besser.</p>
+              <h4>{t('login.step4title')}</h4>
+              <p>{t('login.step4desc')}</p>
             </div>
           </div>
         </section>
@@ -129,7 +134,7 @@ export default function LoginPage() {
           onClick={resetSetup}
           className="landing-footer-link"
         >
-          Client ID ändern
+          {t('login.changeClientId')}
         </button>
         <span className="landing-footer-sep">·</span>
         <a
