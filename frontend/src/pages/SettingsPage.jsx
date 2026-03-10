@@ -267,26 +267,12 @@ export default function SettingsPage() {
             MusicChef ist kostenlos und Open Source. Wenn dir die App gefällt,
             kannst du das Projekt mit einem kleinen Beitrag unterstützen.
           </p>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <a
-              href="https://paypal.me/tobcro"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-primary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}
-            >
-              <Heart size={16} /> Via PayPal unterstützen
-            </a>
-            <a
-              href="https://github.com/crorry-dev/MusicChef"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-secondary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}
-            >
-              <ExternalLink size={14} /> GitHub
-            </a>
-          </div>
+          <button
+            className="btn btn-primary"
+            onClick={() => navigate('/donate')}
+          >
+            <Heart size={16} /> Zur Spendenseite
+          </button>
         </section>
 
         {/* ── Session Actions ─────────────────────────────── */}

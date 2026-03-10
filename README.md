@@ -1,6 +1,6 @@
 # MusicChef 🎵🧑‍🍳
 
-> Spotify-basiertes Musik-Quiz – rate Interpret, Titel und Jahr zu Songs aus 48 Genres.
+> Spotify-basiertes Musik-Quiz & Entdecken-Modus – rate Interpret, Titel und Jahr zu Songs aus 48 Genres, entdecke neue Musik per Swipe und exportiere deine Favoriten als Playlist.
 
 [![Deploy to GitHub Pages](https://github.com/crorry-dev/MusicChef/actions/workflows/deploy.yml/badge.svg)](https://github.com/crorry-dev/MusicChef/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -11,18 +11,46 @@
 
 ## Features
 
+### Quiz
+
 | Feature | Beschreibung |
 |---------|-------------|
 | 🎤 **48 Genres** | Von Afrobeats bis Volksmusik – alphabetisch sortiert, mit Regionfilter (Europa, Nordamerika, Lateinamerika, Afrika, Asien, International) |
+| 🎵 **Mehrfachauswahl** | Mehrere Genres gleichzeitig wählen oder zufällig mischen |
 | 🎧 **Spotify Playback** | Volle Wiedergabe via Web Playback SDK (Premium) oder 30s-Preview als Fallback |
 | ✏️ **Freitext-Modus** | Antworten frei eintippen – Fuzzy-Matching erkennt auch Teiltreffer |
 | 🔘 **Multiple-Choice** | 4 Auswahlmöglichkeiten pro Feld mit intelligenten Distraktoren |
 | ⚡ **Speed-Bonus** | Schneller antworten = mehr Punkte (2×, 1.5×, 1.2×, 1×) |
-| 🖼️ **Cover Reveal** | Albumcover wird progressiv schärfer – synchron zum Song-Fortschritt |
+| 🖼️ **Cover-Modus** | Albumcover: komplett verborgen, weichgezeichnet oder sichtbar – frei wählbar |
 | 📋 **Playlist-Quiz** | Eigene Spotify-Playlists als Quiz-Grundlage nutzen |
 | 📅 **Jahresfilter** | Nur Songs aus einem bestimmten Zeitraum quizzen |
 | 🏆 **Ergebnisseite** | Detaillierte Auswertung nach jedem Quiz |
 | ⌨️ **Tastatursteuerung** | Enter zum Absenden / nächste Frage |
+
+### Entdecken-Modus
+
+| Feature | Beschreibung |
+|---------|-------------|
+| 🔀 **Swipe Discovery** | Tinder-artiges Durchblättern neuer Songs – Like, Skip oder Playlist hinzufügen |
+| 🎭 **Stimmungen** | 8 Moods: Chill, Party, Workout, Focus, Romantisch, Melancholisch, Feel Good, Road Trip |
+| 🌍 **Multi-Genre-Filter** | Mehrere Genres gleichzeitig kombinieren |
+| 🎲 **Zufallsmodus** | Komplett ohne Filter – lass dich überraschen |
+
+### Verlauf & Playlists
+
+| Feature | Beschreibung |
+|---------|-------------|
+| 📊 **Quiz-Verlauf** | Alle vergangenen Quizze mit Ergebnis und Details |
+| 🔄 **Quiz wiederholen** | Jedes gespielte Quiz direkt nochmal starten |
+| 💾 **Als Playlist speichern** | Songs eines Quizzes als Spotify-Playlist exportieren |
+
+### Sonstiges
+
+| Feature | Beschreibung |
+|---------|-------------|
+| ⚙️ **Einstellungen** | Client ID, Design (Dark/Light/System), Daten verwalten |
+| ❤️ **Spendenseite** | Transparente Kostenaufstellung und einfache Unterstützung via PayPal |
+| 🌗 **Themes** | Dark, Light und System-Theme |
 
 ## Technologie
 
@@ -88,7 +116,6 @@ MusicChef/
 ├── backend/
 │   ├── app.py                  # Flask App Factory
 │   ├── requirements.txt        # Python-Abhängigkeiten
-│   ├── .env.example            # Beispiel-Konfiguration
 │   └── routers/
 │       ├── auth.py             # Spotify OAuth Endpoints
 │       ├── quiz.py             # Quiz API (optional)
@@ -98,31 +125,39 @@ MusicChef/
 │   ├── vite.config.js          # Vite-Konfiguration (base: /MusicChef/)
 │   ├── index.html
 │   ├── public/
-│   │   ├── 404.html            # SPA-Routing für GitHub Pages
-│   │   └── favicon.svg
+│   │   └── 404.html            # SPA-Routing für GitHub Pages
 │   └── src/
 │       ├── App.jsx             # Router & Auth-Provider
 │       ├── main.jsx            # Entry Point
-│       ├── index.css           # Globale Styles (Dark Theme)
+│       ├── index.css           # Globale Styles (Dark/Light Theme)
 │       ├── api.js              # Axios API-Client (Backend)
 │       ├── context/
-│       │   └── AuthContext.jsx  # Auth-State (Token, User)
+│       │   ├── AuthContext.jsx  # Auth-State (Token, User)
+│       │   └── ThemeContext.jsx # Dark/Light/System Theme
+│       ├── components/
+│       │   ├── Navbar.jsx      # Navigation mit Profil-Dropdown
+│       │   └── GenreIcon.jsx   # Genre-spezifische Icons
 │       ├── lib/
 │       │   ├── spotify-pkce.js  # PKCE OAuth Flow
-│       │   ├── spotify-api.js   # Spotify Web API (Tracks, Playlists)
+│       │   ├── spotify-api.js   # Spotify Web API (Tracks, Playlists, Search)
 │       │   ├── spotify-player.js# Web Playback SDK Wrapper
-│       │   ├── quiz-engine.js   # Quiz-Logik, Scoring, Choices
-│       │   └── genres.js        # 48 Genres mit Regionfilter
+│       │   ├── quiz-engine.js   # Quiz-Logik, Scoring, Choices, History
+│       │   ├── genres.js        # 48 Genres mit Regionfilter
+│       │   └── icons.jsx        # Lucide-Icon Re-Exports
 │       └── pages/
 │           ├── SetupPage.jsx    # Client-ID Eingabe
 │           ├── LoginPage.jsx    # Spotify Login
 │           ├── CallbackPage.jsx # OAuth Callback
-│           ├── HomePage.jsx     # Genre/Playlist-Auswahl, Settings
+│           ├── HomePage.jsx     # Genre/Playlist-Auswahl, Quiz-Setup
 │           ├── QuizPage.jsx     # Quiz mit Player, Timer, Choices
 │           ├── ResultsPage.jsx  # Ergebnisauswertung
-│           └── HistoryPage.jsx  # Quiz-Verlauf
+│           ├── HistoryPage.jsx  # Quiz-Verlauf (Replay & Playlist-Export)
+│           ├── TinderPage.jsx   # Entdecken-Modus (Moods, Multi-Genre)
+│           ├── SettingsPage.jsx # Einstellungen (Client ID, Theme, Daten)
+│           └── DonatePage.jsx   # Spendenseite (PayPal-Presets)
 ├── .gitignore
 ├── LICENSE                      # MIT
+├── CONTRIBUTING.md
 └── README.md
 ```
 
@@ -138,13 +173,21 @@ MusicChef/
   - ≤ 10 Sekunden → 1.5× Punkte
   - ≤ 20 Sekunden → 1.2× Punkte
   - \> 20 Sekunden → 1× Punkte
-- **Cover aufdecken** – Albumcover wird synchron zum Song-Fortschritt von verpixelt zu scharf
+- **Cover-Modus** – Albumcover-Verhalten wählbar:
+  - *Sichtbar* – Cover immer sichtbar
+  - *Weichgezeichnet* – Cover verschwommen, wird bei Antwort aufgedeckt
+  - *Verborgen* – Kein Cover sichtbar
 
 ### Rate-Felder
 Frei wählbar – jede Kombination aus:
 - 🎤 Interpret
 - 🎵 Titel
 - 📅 Jahr
+
+### Genre-Auswahl
+- Einzelnes Genre oder Mehrfachauswahl
+- Regionfilter: Europa, Nordamerika, Lateinamerika, Afrika, Asien, International
+- Eigene Spotify-Playlists als Alternative
 
 ## Architektur
 

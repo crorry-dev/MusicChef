@@ -30,10 +30,23 @@ import GenreIcon from '../components/GenreIcon'
 import {
   MusicNote, Heart, X, Check, Play, Pause, Music, Search,
   ChevronDown, Shuffle, ArrowLeft, ExternalLink, CheckCircle,
+  Coffee, Zap, Target, Moon, Sun, Compass, Sparkles, Headphones,
 } from '../lib/icons'
 
 const BATCH_SIZE = 20
 const PREVIEW_DURATION = 30
+
+/* ── Stimmungen / Moods ───────────────────────────────────── */
+const MOODS = [
+  { id: 'chill', name: 'Chill', icon: Coffee, search: 'chill lounge ambient' },
+  { id: 'party', name: 'Party', icon: Sparkles, search: 'party dance club' },
+  { id: 'workout', name: 'Workout', icon: Zap, search: 'workout gym energy' },
+  { id: 'focus', name: 'Focus', icon: Target, search: 'focus study instrumental' },
+  { id: 'romantic', name: 'Romantisch', icon: Heart, search: 'romantic love ballad' },
+  { id: 'melancholy', name: 'Melancholisch', icon: Moon, search: 'sad melancholy' },
+  { id: 'feelgood', name: 'Feel Good', icon: Sun, search: 'happy feel good upbeat' },
+  { id: 'roadtrip', name: 'Road Trip', icon: Compass, search: 'road trip driving' },
+]
 
 /* ═══════════════════════════════════════════════════════════
    Swipe Card Player (inline, no fixed bar)
@@ -238,9 +251,13 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
 })
 
 /* ═══════════════════════════════════════════════════════════
-   Filter Setup Panel
+   Filter Setup Panel (Moods + Multi-Genre)
    ═══════════════════════════════════════════════════════════ */
-function FilterPanel({ genre, onGenreChange, yearFrom, yearTo, onYearFromChange, onYearToChange, yearEnabled, onYearToggle, regionFilter, onRegionChange }) {
+function FilterPanel({
+  selectedGenres, onToggleGenre, selectedMoods, onToggleMood,
+  yearFrom, yearTo, onYearFromChange, onYearToChange,
+  yearEnabled, onYearToggle, regionFilter, onRegionChange,
+}) {
   const [genreSearch, setGenreSearch] = useState('')
   const [showGenres, setShowGenres] = useState(false)
   const regions = useMemo(() => getRegionsList(), [])
@@ -255,16 +272,50 @@ function FilterPanel({ genre, onGenreChange, yearFrom, yearTo, onYearFromChange,
 
   return (
     <div className="td-filters">
+      {/* Stimmungen */}
       <div className="td-filter-group">
-        <label className="td-filter-label">Genre</label>
+        <label className="td-filter-label">Stimmung</label>
+        <div className="td-mood-grid">
+          {MOODS.map((mood) => {
+            const Icon = mood.icon
+            const active = selectedMoods.includes(mood.id)
+            return (
+              <button
+                key={mood.id}
+                className={`td-mood-chip ${active ? 'active' : ''}`}
+                onClick={() => onToggleMood(mood.id)}
+              >
+                <Icon size={16} />
+                <span>{mood.name}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Genres */}
+      <div className="td-filter-group">
+        <label className="td-filter-label">
+          Genres
+          {selectedGenres.length > 0 && (
+            <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
+              ({selectedGenres.length} gewählt)
+            </span>
+          )}
+        </label>
         <button className="td-filter-select" onClick={() => setShowGenres(!showGenres)}>
-          {genre ? (
+          {selectedGenres.length > 0 ? (
             <span className="td-filter-genre-picked">
-              <GenreIcon icon={GENRES[genre]?.icon ?? 'music'} size={16} />
-              {GENRES[genre]?.name ?? genre}
+              {selectedGenres.slice(0, 3).map((gId) => (
+                <span key={gId} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginRight: '0.5rem' }}>
+                  <GenreIcon icon={GENRES[gId]?.icon ?? 'music'} size={14} />
+                  {GENRES[gId]?.name ?? gId}
+                </span>
+              ))}
+              {selectedGenres.length > 3 && <span className="text-muted">+{selectedGenres.length - 3}</span>}
             </span>
           ) : (
-            <span className="text-muted"><Shuffle size={14} /> Zufällig (alle Genres)</span>
+            <span className="text-muted"><Shuffle size={14} /> Keine Einschränkung</span>
           )}
           <ChevronDown size={16} className={showGenres ? 'rotated' : ''} />
         </button>
@@ -306,25 +357,30 @@ function FilterPanel({ genre, onGenreChange, yearFrom, yearTo, onYearFromChange,
                 </button>
               )}
             </div>
-            <button
-              className={`td-genre-option ${!genre ? 'active' : ''}`}
-              onClick={() => { onGenreChange(null); setShowGenres(false) }}
-            >
-              <Shuffle size={14} /> Zufällig
-            </button>
+            {selectedGenres.length > 0 && (
+              <button
+                className="td-genre-option"
+                onClick={() => { selectedGenres.forEach((g) => onToggleGenre(g)); setShowGenres(false) }}
+                style={{ color: 'var(--error)' }}
+              >
+                <X size={14} /> Auswahl zurücksetzen
+              </button>
+            )}
             {genres.map((g) => (
               <button
                 key={g.id}
-                className={`td-genre-option ${genre === g.id ? 'active' : ''}`}
-                onClick={() => { onGenreChange(g.id); setShowGenres(false) }}
+                className={`td-genre-option ${selectedGenres.includes(g.id) ? 'active' : ''}`}
+                onClick={() => onToggleGenre(g.id)}
               >
                 <GenreIcon icon={g.icon} size={14} /> {g.name}
+                {selectedGenres.includes(g.id) && <CheckCircle size={14} style={{ marginLeft: 'auto', color: 'var(--accent)' }} />}
               </button>
             ))}
           </div>
         )}
       </div>
 
+      {/* Jahresbereich */}
       <div className="td-filter-group">
         <label className="td-filter-label">
           <input type="checkbox" checked={yearEnabled} onChange={(e) => onYearToggle(e.target.checked)} />
@@ -492,7 +548,8 @@ export default function TinderPage() {
   const [phase, setPhase] = useState('setup')
 
   /* Filter state */
-  const [genre, setGenre] = useState(null)
+  const [selectedGenres, setSelectedGenres] = useState([])
+  const [selectedMoods, setSelectedMoods] = useState([])
   const [regionFilter, setRegionFilter] = useState('all')
   const [yearEnabled, setYearEnabled] = useState(false)
   const [yearFrom, setYearFrom] = useState(2010)
@@ -535,23 +592,67 @@ export default function TinderPage() {
   const currentTrack = tracks[currentIdx] ?? null
   const yearRange = yearEnabled ? { from: yearFrom, to: yearTo } : null
 
-  /* Load a batch of tracks */
+  const handleToggleGenre = useCallback((genreId) => {
+    setSelectedGenres((prev) =>
+      prev.includes(genreId) ? prev.filter((g) => g !== genreId) : [...prev, genreId]
+    )
+  }, [])
+
+  const handleToggleMood = useCallback((moodId) => {
+    setSelectedMoods((prev) =>
+      prev.includes(moodId) ? prev.filter((m) => m !== moodId) : [...prev, moodId]
+    )
+  }, [])
+
+  /* Load a batch of tracks – combines genre + mood search queries */
   const loadBatch = useCallback(async (existingSeenIds) => {
     setLoadingTracks(true)
     setError(null)
     try {
-      const searchQuery = genre ? GENRES[genre]?.search ?? null : null
-      const batch = await fetchDiscoverTracks(searchQuery, BATCH_SIZE, yearRange)
-      const fresh = batch.filter((t) => !existingSeenIds.has(t.id))
-      if (fresh.length === 0) throw new Error('Keine neuen Songs gefunden. Versuch ein anderes Genre.')
-      return fresh
+      const queries = []
+      for (const gId of selectedGenres) {
+        const info = GENRES[gId]
+        if (info) queries.push(info.search)
+      }
+      for (const mId of selectedMoods) {
+        const mood = MOODS.find((m) => m.id === mId)
+        if (mood) queries.push(mood.search)
+      }
+
+      let batch
+      if (queries.length > 0) {
+        /* Fetch from multiple queries in parallel, deduplicate */
+        const perQuery = Math.max(Math.ceil(BATCH_SIZE / queries.length), 8)
+        const results = await Promise.all(
+          queries.map((q) => fetchDiscoverTracks(q, perQuery, yearRange).catch(() => []))
+        )
+        const seen = new Set()
+        const merged = []
+        for (const arr of results) {
+          for (const t of arr) {
+            if (!seen.has(t.id) && !existingSeenIds.has(t.id)) { seen.add(t.id); merged.push(t) }
+          }
+        }
+        /* Shuffle to mix genres/moods */
+        for (let i = merged.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[merged[i], merged[j]] = [merged[j], merged[i]]
+        }
+        batch = merged.slice(0, BATCH_SIZE)
+      } else {
+        batch = await fetchDiscoverTracks(null, BATCH_SIZE, yearRange)
+        batch = batch.filter((t) => !existingSeenIds.has(t.id))
+      }
+
+      if (batch.length === 0) throw new Error('Keine neuen Songs gefunden. Versuch andere Filter.')
+      return batch
     } catch (err) {
       setError(err.message)
       return []
     } finally {
       setLoadingTracks(false)
     }
-  }, [genre, yearRange])
+  }, [selectedGenres, selectedMoods, yearRange])
 
   /* Start swiping */
   const handleStart = useCallback(async () => {
@@ -561,7 +662,11 @@ export default function TinderPage() {
     setCurrentIdx(0)
     setSaved(false)
     setPlaylistUrl(null)
-    setPlaylistName(genre ? `${GENRES[genre]?.name ?? 'Mix'} Entdeckungen` : 'Meine Entdeckungen')
+
+    const genreNames = selectedGenres.map((gId) => GENRES[gId]?.name).filter(Boolean)
+    const moodNames = selectedMoods.map((mId) => MOODS.find((m) => m.id === mId)?.name).filter(Boolean)
+    const label = [...genreNames, ...moodNames].slice(0, 3).join(', ') || 'Mix'
+    setPlaylistName(`${label} Entdeckungen`)
 
     ensureSdk()
 
@@ -653,6 +758,8 @@ export default function TinderPage() {
     setSaved(false)
     setPlaylistUrl(null)
     setError(null)
+    setSelectedGenres([])
+    setSelectedMoods([])
   }, [])
 
   return (
@@ -665,12 +772,14 @@ export default function TinderPage() {
           <div className="td-setup">
             <div className="td-setup-header">
               <h1 className="gradient-text">Songs entdecken</h1>
-              <p className="text-muted">Swipe durch Songs und erstelle deine Playlist</p>
+              <p className="text-muted">Wähle Stimmungen und Genres – oder lass dich komplett überraschen</p>
             </div>
 
             <FilterPanel
-              genre={genre}
-              onGenreChange={setGenre}
+              selectedGenres={selectedGenres}
+              onToggleGenre={handleToggleGenre}
+              selectedMoods={selectedMoods}
+              onToggleMood={handleToggleMood}
               regionFilter={regionFilter}
               onRegionChange={setRegionFilter}
               yearFrom={yearFrom}
@@ -682,7 +791,7 @@ export default function TinderPage() {
             />
 
             <button className="btn btn-primary btn-lg btn-block" onClick={handleStart}>
-              <Shuffle size={18} /> Los geht's
+              <Shuffle size={18} /> {selectedGenres.length === 0 && selectedMoods.length === 0 ? 'Überrasch mich!' : 'Los geht\'s'}
             </button>
           </div>
         )}

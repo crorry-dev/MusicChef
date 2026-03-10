@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getQuizHistory, clearQuizHistory } from '../lib/quiz-engine'
+import { createPlaylist, addTracksToPlaylist } from '../lib/spotify-api'
 import Navbar from '../components/Navbar'
 import { useAuth } from '../context/AuthContext'
 import {
   Music, MusicNote, BarChart, Gamepad2, Trash2, AlertTriangle,
-  ArrowLeft, ChevronDown, CheckCircle, XCircle,
+  ArrowLeft, ChevronDown, CheckCircle, XCircle, RefreshCw, ListMusic,
 } from '../lib/icons'
 import GenreIcon from '../components/GenreIcon'
 import { GENRES } from '../lib/genres'
@@ -31,14 +32,49 @@ function formatDate(dateStr) {
   })
 }
 
-function HistoryCard({ quiz }) {
+function HistoryCard({ quiz, user, navigate }) {
   const [expanded, setExpanded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState(null)
 
   const score = quiz.score ?? 0
   const maxScore = quiz.max_score ?? (quiz.question_count ?? 0) * 200
   const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
   const genre = quiz.genre || quiz.mode || 'Unbekannt'
   const answers = quiz.answers ?? []
+
+  const tracksWithIds = answers.filter((a) => a.track?.id)
+
+  const handleReplay = useCallback(() => {
+    navigate('/home', {
+      state: {
+        replay: {
+          genre: quiz.genre,
+          mode: quiz.mode,
+          count: quiz.total_questions,
+          guessFields: quiz.guessFields,
+        },
+      },
+    })
+  }, [navigate, quiz])
+
+  const handleSaveAsPlaylist = useCallback(async () => {
+    if (!user?.id || tracksWithIds.length === 0) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const name = `MusicChef – ${genre.charAt(0).toUpperCase() + genre.slice(1)}`
+      const pl = await createPlaylist(user.id, name, 'Quiz-Tracks aus MusicChef')
+      const uris = tracksWithIds.map((a) => `spotify:track:${a.track.id}`)
+      await addTracksToPlaylist(pl.id, uris)
+      setSaved(true)
+    } catch (err) {
+      setSaveError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }, [user, tracksWithIds, genre])
 
   return (
     <div className="history-card">
@@ -102,6 +138,25 @@ function HistoryCard({ quiz }) {
               )
             })
           )}
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+            <button className="btn btn-ghost btn-sm" onClick={handleReplay}>
+              <RefreshCw size={14} /> Wiederholen
+            </button>
+            {tracksWithIds.length > 0 && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={handleSaveAsPlaylist}
+                disabled={saving || saved}
+              >
+                {saved ? <><CheckCircle size={14} /> Gespeichert</> : saving ? 'Speichere…' : <><ListMusic size={14} /> Als Playlist speichern</>}
+              </button>
+            )}
+            {saveError && (
+              <span style={{ fontSize: '0.78rem', color: 'var(--error)', alignSelf: 'center' }}>{saveError}</span>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -212,7 +267,7 @@ export default function HistoryPage() {
         ) : (
           <div className="history-list">
             {history.map((quiz, idx) => (
-              <HistoryCard key={quiz.id ?? quiz.quiz_id ?? idx} quiz={quiz} />
+              <HistoryCard key={quiz.id ?? quiz.quiz_id ?? idx} quiz={quiz} user={user} navigate={navigate} />
             ))}
           </div>
         )}

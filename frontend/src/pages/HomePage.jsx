@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getGenresList, getRegionsList } from '../lib/genres'
 import { fetchUserPlaylists, getCachedPlaylists, checkPlaylistAccess } from '../lib/spotify-api'
@@ -16,6 +16,7 @@ const QUICK_COUNTS = [5, 10, 20, 50]
 export default function HomePage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   /* ── Source state ─────────────────────────────────────────── */
   const [playlists, setPlaylists] = useState(() => getCachedPlaylists() ?? [])
@@ -95,6 +96,23 @@ export default function HomePage() {
       if (filtered.length !== selectedGenres.length) setSelectedGenres(filtered)
     }
   }, [genres, selectedGenres])
+
+  /* ── Replay from History ──────────────────────────────────── */
+  useEffect(() => {
+    const replay = location.state?.replay
+    if (!replay) return
+    if (replay.count) setCount(replay.count)
+    if (replay.guessFields) setGuessFields(replay.guessFields)
+    if (replay.genre && replay.genre !== 'random') {
+      const genresList = getGenresList('all')
+      const match = genresList.find((g) => g.id === replay.genre)
+      if (match) setSelectedGenres([match])
+    } else if (replay.genre === 'random' || replay.mode === 'random') {
+      setSelectedGenres([{ id: '__random__', name: 'Zufällig' }])
+    }
+    /* Clear state to prevent re-applying on re-render */
+    window.history.replaceState({}, '')
+  }, [location.state])
 
   /* ── Handlers ─────────────────────────────────────────────── */
   const handleGenreSelect = useCallback((genre) => {

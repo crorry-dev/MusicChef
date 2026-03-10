@@ -187,18 +187,15 @@ export default function Navbar({ user, onLogout, minimal = false }) {
                     <Settings size={16} />
                     <span>Einstellungen</span>
                   </button>
-                  <a
+                  <button
                     className="sp-dropdown-item"
-                    href="https://paypal.me/tobcro"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    onClick={() => { setMenuOpen(false); navigate('/donate') }}
                     role="menuitem"
-                    style={{ textDecoration: 'none', color: 'inherit' }}
                   >
                     <Heart size={16} />
                     <span>Unterstützen</span>
                     <Heart size={12} style={{ marginLeft: 'auto', color: 'var(--error, #e74c3c)' }} />
-                  </a>
+                  </button>
 
                   <div className="sp-dropdown-divider" />
 

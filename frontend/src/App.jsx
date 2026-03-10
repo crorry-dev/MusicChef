@@ -11,6 +11,7 @@ import ResultsPage from './pages/ResultsPage'
 import HistoryPage from './pages/HistoryPage'
 import TinderPage from './pages/TinderPage'
 import SettingsPage from './pages/SettingsPage'
+import DonatePage from './pages/DonatePage'
 
 function SpinnerFull() {
   return (
@@ -70,6 +71,7 @@ export default function App() {
           <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
           <Route path="/discover" element={<ProtectedRoute><TinderPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+          <Route path="/donate" element={<ProtectedRoute><DonatePage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
