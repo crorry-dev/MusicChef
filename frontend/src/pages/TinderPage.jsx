@@ -157,12 +157,12 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
     if (!trackId && !previewUrl) return
     let cancelled = false
     ;(async () => {
-      /* Desktop: SDK */
-      if (sdkReady && trackId && !isMobile()) {
+      /* 1. SDK (Desktop + Mobile) */
+      if (sdkReady && trackId) {
         try { await sdkPlay(trackId); if (!cancelled) { updateMode('sdk'); setPlaying(true) }; return } catch { /* fallback */ }
       }
 
-      /* Mobile: Spotify Connect */
+      /* 2. Mobile Fallback: Spotify Connect */
       if (isMobile() && trackId) {
         try {
           await connectPlay(trackId)
@@ -180,7 +180,7 @@ const CardPlayer = forwardRef(function CardPlayer({ trackId, previewUrl, sdkRead
         }
       }
 
-      /* Fallback: Audio-Preview */
+      /* 3. Fallback: Audio-Preview */
       if (previewUrl && a && !cancelled) {
         updateMode('audio')
         a.src = previewUrl
@@ -680,7 +680,7 @@ export default function TinderPage() {
     batch.forEach((tr) => newSeen.add(tr.id))
     setSeenIds(newSeen)
     setTracks(batch)
-  }, [genre, loadBatch, ensureSdk, t])
+  }, [selectedGenres, selectedMoods, loadBatch, ensureSdk, t])
 
   /* Advance to next track, load more if needed */
   const advance = useCallback(async () => {

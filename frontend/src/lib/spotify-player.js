@@ -5,8 +5,9 @@
  * Wenn Premium nicht verfügbar ist, schlagen connectPlayer() oder play() fehl,
  * und der Aufrufer kann auf preview_url-Audio-Fallback zurückfallen.
  *
- * Auf mobilen Browsern ist das SDK nicht verfügbar – connectPlayer() gibt
- * sofort einen Fehler, damit der Aufrufer direkt den Audio-Fallback nutzt.
+ * Auf modernen mobilen Browsern (Chrome Android, Safari iOS 11.3+) wird das SDK
+ * ebenfalls versucht. Bei Fehler fällt der Aufrufer auf Spotify Connect oder
+ * Audio-Preview zurück.
  */
 import { getValidToken } from './spotify-pkce'
 
@@ -42,10 +43,6 @@ function loadScript() {
 
 /* ── Player verbinden (Singleton) ─────────────────────────── */
 export async function connectPlayer() {
-  if (isMobileBrowser()) {
-    throw new Error('Spotify SDK nicht verfügbar auf mobilen Browsern')
-  }
-
   if (deviceId) return deviceId
   if (initPromise) return initPromise
 

@@ -259,8 +259,8 @@ const PlayerBar = forwardRef(function PlayerBar(
     if (!trackId && !previewUrl) return
     let cancelled = false
     ;(async () => {
-      /* Desktop: SDK */
-      if (sdkReady && trackId && !isMobile()) {
+      /* 1. SDK (Desktop + Mobile) */
+      if (sdkReady && trackId) {
         try { await sdkPlay(trackId); if (!cancelled) { setMode('sdk'); setPlaying(true) } return } catch (e) {
           console.warn('[PlayerBar] SDK play fehlgeschlagen:', e.message)
           /* Auto-Recovery: Reconnect + Retry bei Geräte-Fehler */
@@ -278,7 +278,7 @@ const PlayerBar = forwardRef(function PlayerBar(
         }
       }
 
-      /* Mobile: Spotify Connect – spielt auf der Spotify-App des Handys */
+      /* 2. Mobile Fallback: Spotify Connect – spielt auf der Spotify-App des Handys */
       if (isMobile() && trackId) {
         try {
           await connectPlay(trackId)
@@ -297,7 +297,7 @@ const PlayerBar = forwardRef(function PlayerBar(
         }
       }
 
-      /* Fallback: Audio-Preview */
+      /* 3. Fallback: Audio-Preview */
       if (previewUrl && a && !cancelled) {
         setMode('audio')
         a.src = previewUrl
@@ -393,7 +393,7 @@ const PlayerBar = forwardRef(function PlayerBar(
             onChange={handleVolumeChange} aria-label={t('quiz.volume')} />
         </div>
       </div>
-      {!pbMode && !sdkReady && !sdkError && trackId && !isMobile() && (
+      {!pbMode && !sdkReady && !sdkError && trackId && (
         <span className="pb-connecting"><span className="spinner spinner-sm" /> {t('quiz.connecting')}</span>
       )}
       {!pbMode && isMobile() && noDevice && (
@@ -411,7 +411,7 @@ const PlayerBar = forwardRef(function PlayerBar(
       {!pbMode && isMobile() && !noDevice && !previewUrl && trackId && (
         <span className="pb-connecting"><span className="spinner spinner-sm" /> {t('quiz.connecting')}</span>
       )}
-      {!pbMode && !isMobile() && (sdkError) && !previewUrl && (
+      {!pbMode && sdkError && !isMobile() && !previewUrl && (
         <span className="pb-no-preview" style={{ fontSize: '0.75rem' }}>
           {t('quiz.playbackFailed')}{' '}
           <button
@@ -1019,7 +1019,7 @@ export default function QuizPage() {
 
       <div className="container">
         {/* SDK Disconnected Banner */}
-        {sdkDisconnected && sdkReady && !isMobile() && (
+        {sdkDisconnected && sdkReady && (
           <div className="sdk-reconnect-banner" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
             background: 'var(--warning-bg, #fff3cd)', color: 'var(--warning-text, #856404)',
