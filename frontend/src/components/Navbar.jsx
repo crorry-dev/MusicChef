@@ -4,7 +4,7 @@ import { useTheme } from '../context/ThemeContext'
 import { getClientId } from '../lib/spotify-pkce'
 import {
   MusicNote, BarChart, LogOut, Home, ArrowLeft, Compass,
-  ChevronDown, Sun, Moon, Monitor, Settings, CheckCircle, Globe,
+  ChevronDown, Sun, Moon, Monitor, Settings, CheckCircle, Globe, Heart, Coffee,
 } from '../lib/icons'
 
 /**
@@ -175,6 +175,30 @@ export default function Navbar({ user, onLogout, minimal = false }) {
                       </button>
                     </div>
                   </div>
+
+                  <div className="sp-dropdown-divider" />
+
+                  {/* Actions */}
+                  <button
+                    className="sp-dropdown-item"
+                    onClick={() => { setMenuOpen(false); navigate('/settings') }}
+                    role="menuitem"
+                  >
+                    <Settings size={16} />
+                    <span>Einstellungen</span>
+                  </button>
+                  <a
+                    className="sp-dropdown-item"
+                    href="https://buymeacoffee.com/crorry"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    role="menuitem"
+                    style={{ textDecoration: 'none', color: 'inherit' }}
+                  >
+                    <Coffee size={16} />
+                    <span>Unterstützen</span>
+                    <Heart size={12} style={{ marginLeft: 'auto', color: 'var(--error, #e74c3c)' }} />
+                  </a>
 
                   <div className="sp-dropdown-divider" />
 
