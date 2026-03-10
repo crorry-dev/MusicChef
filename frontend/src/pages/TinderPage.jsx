@@ -272,7 +272,17 @@ function FilterPanel({ genre, onGenreChange, yearFrom, yearTo, onYearFromChange,
         {showGenres && (
           <div className="td-genre-dropdown">
             <div className="td-genre-regions">
-              {regions.map((r) => (
+              {regions.filter((r) => r.group === 'continent').map((r) => (
+                <button
+                  key={r.id}
+                  className={`td-region-btn ${regionFilter === r.id ? 'active' : ''}`}
+                  onClick={() => onRegionChange(r.id)}
+                >
+                  {r.name}
+                </button>
+              ))}
+              <span className="region-divider" />
+              {regions.filter((r) => r.group === 'country').map((r) => (
                 <button
                   key={r.id}
                   className={`td-region-btn ${regionFilter === r.id ? 'active' : ''}`}

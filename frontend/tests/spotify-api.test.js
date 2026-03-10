@@ -114,10 +114,9 @@ describe('fetchTracksForPlaylist', () => {
   })
 
   it('wirft Fehler wenn Playlist keine abspielbaren Tracks enthält', async () => {
-    /* Haupt-Endpoint: leere Playlist, Sub-Endpoint auch leer */
+    /* Haupt-Endpoint: leere Playlist mit total=0 → Sub-Endpoint wird nicht aufgerufen */
     mockFetch
       .mockReturnValueOnce(jsonResponse(200, playlistResponse([])))
-      .mockReturnValueOnce(jsonResponse(200, playlistTracksResponse([])))
 
     await expect(fetchTracksForPlaylist('empty-pl', 5)).rejects.toThrow(
       'keine abspielbaren Tracks'
@@ -125,18 +124,17 @@ describe('fetchTracksForPlaylist', () => {
   })
 
   it('zeigt Ownership-Hinweis bei 403 auf fremde Playlist', async () => {
-    /* Haupt-Endpoint: gibt Metadaten aber keine Tracks, Owner ist jemand anderes */
+    /* Haupt-Endpoint: gibt Metadaten aber keine Track-Items obwohl total > 0
+       → Dev-Mode-Einschränkung, Sub-Endpoint wird NICHT aufgerufen */
     const emptyPlaylist = {
       id: 'foreign-pl',
       name: 'Hitster',
       public: true,
       owner: { id: 'other-user', display_name: 'Hitster Games' },
-      tracks: { items: [], total: 0, next: null },
+      tracks: { items: [], total: 50, next: null },
     }
     mockFetch
       .mockReturnValueOnce(jsonResponse(200, emptyPlaylist))
-      .mockReturnValueOnce(jsonResponse(403, { error: { status: 403, message: 'Forbidden' } }))
-      .mockReturnValueOnce(jsonResponse(403, { error: { status: 403, message: 'Forbidden' } }))
 
     await expect(fetchTracksForPlaylist('foreign-pl', 5)).rejects.toThrow(
       'gehört „Hitster Games"'

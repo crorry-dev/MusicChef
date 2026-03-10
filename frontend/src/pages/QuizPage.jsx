@@ -248,7 +248,21 @@ const PlayerBar = forwardRef(function PlayerBar(
     ;(async () => {
       /* Desktop: SDK */
       if (sdkReady && trackId && !isMobile()) {
-        try { await sdkPlay(trackId); if (!cancelled) { setMode('sdk'); setPlaying(true) } return } catch (e) { console.warn('[PlayerBar] SDK:', e.message) }
+        try { await sdkPlay(trackId); if (!cancelled) { setMode('sdk'); setPlaying(true) } return } catch (e) {
+          console.warn('[PlayerBar] SDK play fehlgeschlagen:', e.message)
+          /* Auto-Recovery: Reconnect + Retry bei Geräte-Fehler */
+          if (e.message.includes('Gerät') || e.message.includes('Device') || e.message.includes('404') || e.message.includes('neu laden')) {
+            try {
+              console.log('[PlayerBar] Versuche Reconnect…')
+              await sdkReconnect()
+              await sdkPlay(trackId)
+              if (!cancelled) { setMode('sdk'); setPlaying(true) }
+              return
+            } catch (retryErr) {
+              console.warn('[PlayerBar] Reconnect-Retry fehlgeschlagen:', retryErr.message)
+            }
+          }
+        }
       }
 
       /* Mobile: Spotify Connect – spielt auf der Spotify-App des Handys */
@@ -344,10 +358,36 @@ const PlayerBar = forwardRef(function PlayerBar(
         <span className="pb-connecting"><span className="spinner spinner-sm" /> Verbinde…</span>
       )}
       {!pbMode && !isMobile() && (sdkError) && !previewUrl && (
-        <span className="pb-no-preview">Keine Vorschau verfügbar</span>
+        <span className="pb-no-preview" style={{ fontSize: '0.75rem' }}>
+          Wiedergabe fehlgeschlagen.{' '}
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
+            onClick={() => setRetryConnect((n) => n + 1)}
+          >
+            Erneut versuchen
+          </button>{' '}
+          oder <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
+            onClick={() => window.location.reload()}>Seite neu laden</button>
+        </span>
       )}
       {!pbMode && !sdkError && sdkReady && !previewUrl && !isMobile() && (
-        <span className="pb-no-preview">Keine Vorschau verfügbar</span>
+        <span className="pb-no-preview" style={{ fontSize: '0.75rem' }}>
+          Kein Gerät erkannt.{' '}
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
+            onClick={() => {
+              sdkReconnect()
+                .then(() => setRetryConnect((n) => n + 1))
+                .catch(() => {})
+            }}
+          >
+            Neu verbinden
+          </button>{' '}
+          oder <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
+            onClick={() => window.location.reload()}>Seite neu laden</button>
+        </span>
       )}
     </div>
   )
@@ -500,7 +540,7 @@ export default function QuizPage() {
       setSdkDisconnected(!connected)
       if (connected) setSdkReconnecting(false)
     })
-    return () => { cancelled = true; unsubConnection(); sdkDisconnect() }
+    return () => { cancelled = true; unsubConnection(); sdkPause() }
   }, [])
 
   /* Timer tick */
@@ -522,25 +562,27 @@ export default function QuizPage() {
     const nav = navigateRef.current
     if (!cfg) { nav('/home', { replace: true }); return }
 
+    let cancelled = false
     createQuiz({
       mode: cfg.mode,
       genre: cfg.genre,
+      genres: cfg.genres,
       count: cfg.count,
       playlistId: cfg.playlist_id,
       guessFields: cfg.guessFields,
       yearRange: cfg.yearRange ?? null,
       inputMode: cfg.inputMode ?? 'freetext',
       speedBonus: cfg.speedBonus ?? false,
-      revealCover: cfg.revealCover ?? false,
+      coverMode: cfg.coverMode ?? 'none',
     })
       .then((quiz) => {
+        if (cancelled) return
         quizRef.current = quiz
         setQuizId(quiz.id)
         setTotalQuestions(quiz.totalQuestions)
         if (quiz.trackCountWarning) setTrackCountWarning(quiz.trackCountWarning)
 
         if (quiz.streamMode) {
-          /* Stream-Modus: warte auf SDK bevor erste Frage geladen wird */
           setStreamPending(true)
           return
         }
@@ -557,18 +599,23 @@ export default function QuizPage() {
         setCurrentQuestion(q)
         setLoading(false)
       })
-      .catch((e) => { setError(e.message || 'Quiz konnte nicht geladen werden.'); setLoading(false) })
+      .catch((e) => {
+        if (cancelled) return
+        setError(e.message || 'Quiz konnte nicht geladen werden.')
+        setLoading(false)
+      })
+    return () => { cancelled = true }
   }, [])
 
   /* ── Stream-Mode: Playlist via SDK starten ──────────────── */
   useEffect(() => {
     if (!streamPending || !sdkReady) return
-    const quiz = quizRef.current
-    if (!quiz?.streamMode) return
+    if (!quizRef.current?.streamMode) return
 
     let cancelled = false
     ;(async () => {
       try {
+        const quiz = quizRef.current
         await sdkPlayContext(quiz.playlistUri, true)
 
         /* Warte auf ersten Track im Player-State */
@@ -590,7 +637,8 @@ export default function QuizPage() {
         /* Jahr vom einzelnen Track-Endpoint holen */
         sdkTrack.year = await fetchTrackYear(sdkTrack.id)
 
-        quiz.tracks.push(sdkTrack)
+        /* Immer auf aktuellem quizRef arbeiten (nicht gecapturte Variable) */
+        quizRef.current.tracks.push(sdkTrack)
         const q = {
           index: 0,
           trackId: sdkTrack.id,
@@ -598,8 +646,8 @@ export default function QuizPage() {
           image: sdkTrack.image,
           question_number: 1,
         }
-        if (quiz.inputMode === 'choice') {
-          q.choices = generateStreamChoices(sdkTrack, state, quiz.tracks, quiz.guessFields)
+        if (quizRef.current.inputMode === 'choice') {
+          q.choices = generateStreamChoices(sdkTrack, state, quizRef.current.tracks, quizRef.current.guessFields)
         }
 
         if (!cancelled) {
@@ -630,16 +678,17 @@ export default function QuizPage() {
   /* ── Config shortcuts ───────────────────────────────────── */
   const inputMode = quizRef.current?.inputMode ?? 'freetext'
   const hasSpeedBonus = quizRef.current?.speedBonus ?? false
-  const hasRevealCover = quizRef.current?.revealCover ?? false
+  const coverMode = quizRef.current?.coverMode ?? 'none'
   const choices = currentQuestion?.choices ?? null
 
   /* ── Progressive blur ───────────────────────────────────── */
   const blurValue = useMemo(() => {
-    if (!hasRevealCover) return revealed ? 0 : 20
+    if (coverMode === 'none') return 0
+    if (coverMode === 'hidden') return 0
     if (revealed) return 0
     const maxBlur = 20
     return maxBlur * (1 - songPct)
-  }, [hasRevealCover, revealed, songPct])
+  }, [coverMode, revealed, songPct])
 
   /* ── Submit ─────────────────────────────────────────────── */
   const handleSubmit = useCallback(async () => {
@@ -969,20 +1018,22 @@ export default function QuizPage() {
           {/* ── Album Art ──────────────────────────────────── */}
           <div className="album-art-panel">
             <div className="album-art-wrapper">
-              {albumImage ? (
+              {coverMode === 'hidden' && !revealed ? (
+                <div className="album-art-placeholder"><Lock size={40} /></div>
+              ) : albumImage ? (
                 <img
                   className="album-art-img"
                   src={albumImage}
                   alt="Album Cover"
                   style={{
-                    filter: `blur(${blurValue}px) brightness(${revealed ? 1 : 0.6})`,
+                    filter: `blur(${blurValue}px) brightness(${revealed ? 1 : coverMode === 'blur' ? 0.6 : 1})`,
                     transition: revealed ? 'filter 0.5s ease' : 'filter 2s linear',
                   }}
                 />
               ) : (
                 <div className="album-art-placeholder"><Music size={40} /></div>
               )}
-              {!revealed && blurValue > 10 && (
+              {!revealed && coverMode === 'blur' && blurValue > 10 && (
                 <div className="album-art-overlay"><Lock size={32} /></div>
               )}
             </div>

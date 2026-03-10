@@ -19,7 +19,7 @@ export default function HomePage() {
 
   /* ── Source state ─────────────────────────────────────────── */
   const [playlists, setPlaylists] = useState(() => getCachedPlaylists() ?? [])
-  const [selectedGenre, setSelectedGenre] = useState(null)
+  const [selectedGenres, setSelectedGenres] = useState([])
   const [selectedPlaylist, setSelectedPlaylist] = useState(null)
   const [loadingPlaylists, setLoadingPlaylists] = useState(false)
   const [playlistError, setPlaylistError] = useState(null)
@@ -37,7 +37,7 @@ export default function HomePage() {
   const [guessFields, setGuessFields] = useState(['artist', 'title', 'year'])
   const [inputMode, setInputMode] = useState('choice')
   const [speedBonus, setSpeedBonus] = useState(true)
-  const [revealCover, setRevealCover] = useState(true)
+  const [coverMode, setCoverMode] = useState('blur')
   const [yearEnabled, setYearEnabled] = useState(false)
   const [yearFrom, setYearFrom] = useState(2010)
   const [yearTo, setYearTo] = useState(new Date().getFullYear())
@@ -88,15 +88,28 @@ export default function HomePage() {
 
   /* Clear genre selection when switching regions (genre might not be in new list) */
   useEffect(() => {
-    if (selectedGenre && selectedGenre.id !== '__random__') {
-      const stillExists = genres.some((g) => g.id === selectedGenre.id)
-      if (!stillExists) setSelectedGenre(null)
+    if (selectedGenres.length > 0) {
+      const validIds = new Set(genres.map((g) => g.id))
+      validIds.add('__random__')
+      const filtered = selectedGenres.filter((g) => validIds.has(g.id))
+      if (filtered.length !== selectedGenres.length) setSelectedGenres(filtered)
     }
-  }, [genres, selectedGenre])
+  }, [genres, selectedGenres])
 
   /* ── Handlers ─────────────────────────────────────────────── */
   const handleGenreSelect = useCallback((genre) => {
-    setSelectedGenre((prev) => (prev?.id === genre.id ? null : genre))
+    setSelectedGenres((prev) => {
+      /* Zufällig ist exklusiv – deselektiert alles andere */
+      if (genre.id === '__random__') {
+        return prev.some((g) => g.id === '__random__') ? [] : [genre]
+      }
+      /* Wenn Zufällig gewählt war, entfernen */
+      const withoutRandom = prev.filter((g) => g.id !== '__random__')
+      const exists = withoutRandom.some((g) => g.id === genre.id)
+      return exists
+        ? withoutRandom.filter((g) => g.id !== genre.id)
+        : [...withoutRandom, genre]
+    })
     setSelectedPlaylist(null)
     setStartError(null)
   }, [])
@@ -104,7 +117,7 @@ export default function HomePage() {
   const handlePlaylistSelect = useCallback((pl) => {
     setSelectedPlaylist((prev) => (prev?.id === pl.id ? null : pl))
     setStartError(null)
-    setSelectedGenre(null)
+    setSelectedGenres([])
     if (pl.tracks && pl.tracks > 0) {
       setCount(Math.min(pl.tracks, 1000))
     }
@@ -127,7 +140,7 @@ export default function HomePage() {
   }, [useAllTracks, selectedPlaylist, count])
 
   const handleStartQuiz = useCallback(async () => {
-    if (!selectedGenre && !selectedPlaylist) return
+    if (selectedGenres.length === 0 && !selectedPlaylist) return
     setStartError(null)
 
     const state = {
@@ -135,7 +148,7 @@ export default function HomePage() {
       guessFields,
       inputMode,
       speedBonus,
-      revealCover,
+      coverMode,
     }
 
     if (selectedPlaylist) {
@@ -157,12 +170,15 @@ export default function HomePage() {
         return
       }
       setStartingQuiz(false)
-    } else if (selectedGenre?.id === '__random__') {
+    } else if (selectedGenres.some((g) => g.id === '__random__')) {
       state.mode = 'random'
       state.genre = null
-    } else {
+    } else if (selectedGenres.length === 1) {
       state.mode = 'genre'
-      state.genre = selectedGenre.id
+      state.genre = selectedGenres[0].id
+    } else {
+      state.mode = 'multi-genre'
+      state.genres = selectedGenres.map((g) => g.id)
     }
 
     if (yearEnabled && state.mode !== 'playlist') {
@@ -171,17 +187,19 @@ export default function HomePage() {
 
     navigate('/quiz', { state })
   }, [
-    selectedGenre, selectedPlaylist, effectiveCount, guessFields,
-    inputMode, speedBonus, revealCover, yearEnabled, yearFrom, yearTo, navigate,
+    selectedGenres, selectedPlaylist, effectiveCount, guessFields,
+    inputMode, speedBonus, coverMode, yearEnabled, yearFrom, yearTo, navigate,
   ])
 
-  const canStart = selectedGenre !== null || selectedPlaylist !== null
+  const canStart = selectedGenres.length > 0 || selectedPlaylist !== null
 
   const selectionLabel = selectedPlaylist
     ? selectedPlaylist.name
-    : selectedGenre
-      ? selectedGenre.name
-      : null
+    : selectedGenres.length > 3
+      ? `${selectedGenres.slice(0, 3).map((g) => g.name).join(', ')} +${selectedGenres.length - 3}`
+      : selectedGenres.length > 0
+        ? selectedGenres.map((g) => g.name).join(', ')
+        : null
 
   return (
     <div className="home-page">
@@ -248,7 +266,17 @@ export default function HomePage() {
               )}
             </div>
             <div className="region-filter">
-            {regions.map((r) => (
+            {regions.filter((r) => r.group === 'continent').map((r) => (
+              <button
+                key={r.id}
+                className={`region-chip ${regionFilter === r.id ? 'active' : ''}`}
+                onClick={() => setRegionFilter(r.id)}
+              >
+                <GenreIcon icon={r.icon} size={14} /> {r.name}
+              </button>
+            ))}
+            <span className="region-divider" />
+            {regions.filter((r) => r.group === 'country').map((r) => (
               <button
                 key={r.id}
                 className={`region-chip ${regionFilter === r.id ? 'active' : ''}`}
@@ -265,7 +293,7 @@ export default function HomePage() {
         {tab === 'genre' && (
           <div className="genre-grid">
             <div
-              className={`genre-card ${selectedGenre?.id === '__random__' ? 'selected' : ''}`}
+              className={`genre-card ${selectedGenres.some((g) => g.id === '__random__') ? 'selected' : ''}`}
               onClick={() => handleGenreSelect({ id: '__random__', name: 'Zufällig' })}
             >
               <span className="genre-icon-wrap"><Shuffle size={20} /></span>
@@ -274,7 +302,7 @@ export default function HomePage() {
             {genres.map((g) => (
               <div
                 key={g.id}
-                className={`genre-card ${selectedGenre?.id === g.id ? 'selected' : ''}`}
+                className={`genre-card ${selectedGenres.some((s) => s.id === g.id) ? 'selected' : ''}`}
                 onClick={() => handleGenreSelect(g)}
               >
                 <span className="genre-icon-wrap"><GenreIcon icon={g.icon} size={20} /></span>
@@ -462,21 +490,43 @@ export default function HomePage() {
             >
               <Zap size={14} /> Speed-Bonus
             </button>
-            <button
-              className={`field-toggle ${revealCover ? 'selected' : ''}`}
-              onClick={() => setRevealCover((v) => !v)}
-            >
-              <Image size={14} /> Cover aufdecken
-            </button>
           </div>
           {speedBonus && (
             <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: '0.35rem' }}>
               Schnellere Antworten = mehr Punkte (bis zu 2x Bonus)
             </p>
           )}
-          {revealCover && (
+
+          {/* ── Cover Mode ──────────────────────────────────── */}
+          <label className="setting-label" style={{ marginTop: '1.25rem' }}>Album-Cover</label>
+          <div className="field-toggles">
+            <button
+              className={`field-toggle ${coverMode === 'none' ? 'selected' : ''}`}
+              onClick={() => setCoverMode('none')}
+            >
+              <Image size={14} /> Sichtbar
+            </button>
+            <button
+              className={`field-toggle ${coverMode === 'blur' ? 'selected' : ''}`}
+              onClick={() => setCoverMode('blur')}
+            >
+              <Image size={14} /> Verpixelt
+            </button>
+            <button
+              className={`field-toggle ${coverMode === 'hidden' ? 'selected' : ''}`}
+              onClick={() => setCoverMode('hidden')}
+            >
+              <Image size={14} /> Versteckt
+            </button>
+          </div>
+          {coverMode === 'blur' && (
             <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: '0.35rem' }}>
               Cover wird langsam von verpixelt zu scharf – bei richtiger Antwort sofort enthüllt
+            </p>
+          )}
+          {coverMode === 'hidden' && (
+            <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: '0.35rem' }}>
+              Cover ist komplett verborgen bis zur Auflösung
             </p>
           )}
 

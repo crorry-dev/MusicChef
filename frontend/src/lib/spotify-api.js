@@ -217,10 +217,10 @@ export async function fetchTracksForGenre(searchQuery, count = 30, yearRange = n
 export async function fetchTracksForPlaylist(playlistId, count = 20) {
   const tracks = []
 
-  /* Schritt 1: Haupt-Endpoint mit market=from_token (hilft manchmal bei Dev-Mode) */
+  /* Schritt 1: Haupt-Endpoint – liefert Metadaten + bis zu 100 Tracks */
   let playlistData
   try {
-    playlistData = await spotifyFetch(`/playlists/${playlistId}?market=from_token`)
+    playlistData = await spotifyFetch(`/playlists/${playlistId}`)
   } catch (err) {
     if (isAuthError(err)) throw err
     if (err.message.includes('Forbidden') || err.message.includes('403')) {
@@ -232,19 +232,24 @@ export async function fetchTracksForPlaylist(playlistId, count = 20) {
   }
 
   const initialItems = playlistData.tracks?.items ?? []
+  const totalTracks = playlistData.tracks?.total ?? 0
 
   for (const item of initialItems) {
     const t = extractTrack(item.track)
     if (t) tracks.push(t)
   }
 
-  /* Schritt 2: Sub-Endpoint versuchen wenn nötig */
-  const needMore = tracks.length < count && (playlistData.tracks?.next || tracks.length === 0)
-  let subEndpointForbidden = false
-  if (needMore) {
+  console.log(
+    `[Playlist] "${playlistData.name}" – ${tracks.length} extrahiert aus ${initialItems.length} items (total: ${totalTracks}), Owner: ${playlistData.owner?.display_name ?? '?'}`
+  )
+
+  /* Schritt 2: Sub-Endpoint NUR wenn der Haupt-Endpoint Tracks geliefert hat
+     und wir mehr brauchen. Wenn der Haupt-Endpoint 0 items hatte obwohl
+     total > 0, ist das ein Dev-Mode-Zugriffsproblem – der Sub-Endpoint
+     wird dann ebenfalls 403 liefern, also gar nicht erst versuchen. */
+  if (tracks.length > 0 && tracks.length < count && totalTracks > initialItems.length) {
     let offset = initialItems.length
 
-    /* Versuch A: Sub-Endpoint ohne zusätzliche Parameter */
     while (tracks.length < count && offset < 500) {
       try {
         const result = await spotifyFetch(
@@ -260,58 +265,37 @@ export async function fetchTracksForPlaylist(playlistId, count = 20) {
         if (items.length < 50) break
       } catch (err) {
         if (isAuthError(err)) throw err
-        if (err.message.includes('Forbidden') || err.message.includes('403')) {
-          subEndpointForbidden = true
-        }
         break
       }
     }
-
-    /* Versuch B: Wenn 403, nochmal mit market=from_token probieren */
-    if (subEndpointForbidden && tracks.length === 0) {
-      subEndpointForbidden = false
-      try {
-        const result = await spotifyFetch(
-          `/playlists/${playlistId}/tracks?limit=50&offset=0&market=from_token`
-        )
-        for (const item of result.items ?? []) {
-          const t = extractTrack(item.track)
-          if (t) tracks.push(t)
-        }
-      } catch (err) {
-        if (isAuthError(err)) throw err
-        if (err.message.includes('Forbidden') || err.message.includes('403')) {
-          subEndpointForbidden = true
-        }
-      }
-    }
   }
 
-  if (tracks.length === 0) {
-    if (subEndpointForbidden) {
-      const ownerId = playlistData.owner?.id
-      const ownerName = playlistData.owner?.display_name ?? ownerId
-      const isOwn = cachedUserId && ownerId === cachedUserId
+  /* Genug Tracks? Raus damit. */
+  if (tracks.length > 0) {
+    return prioritizeWithPreview(shuffleArray(deduplicateTracks(tracks))).slice(0, count)
+  }
 
-      if (!isOwn && ownerId) {
-        throw new Error(
-          `Diese Playlist gehört „${ownerName}" – du folgst ihr nur. ` +
-          'Im Spotify Development Mode ist der Zugriff auf Tracks fremder Playlists eingeschränkt. ' +
-          'Nutze eine Playlist die du selbst erstellt hast, oder wechsle zum Genre-Modus.'
-        )
-      }
+  /* 0 Tracks – klare Fehlermeldung je nach Ursache */
+  if (totalTracks > 0) {
+    const ownerId = playlistData.owner?.id
+    const ownerName = playlistData.owner?.display_name ?? ownerId
+    const isOwn = cachedUserId && ownerId === cachedUserId
 
+    if (!isOwn && ownerId) {
       throw new Error(
-        'Spotify verweigert den Zugriff auf die Tracks dieser Playlist (403). ' +
-        'Prüfe in deinem Spotify Developer Dashboard unter der App-Konfiguration, ' +
-        'ob die nötigen Zugriffsrechte für die Web API aktiviert sind. ' +
-        'Alternativ funktioniert der Genre-Modus.'
+        `Diese Playlist gehört „${ownerName}" – im Spotify Development Mode ist der ` +
+        'Zugriff auf Tracks fremder Playlists eingeschränkt. ' +
+        'Nutze eine Playlist die du selbst erstellt hast, oder wechsle zum Genre-Modus.'
       )
     }
-    throw new Error('Playlist enthält keine abspielbaren Tracks.')
+
+    throw new Error(
+      'Spotify liefert keine Track-Daten für diese Playlist. ' +
+      'Dies kann am Development Mode liegen. Versuche den Genre-Modus.'
+    )
   }
 
-  return prioritizeWithPreview(shuffleArray(deduplicateTracks(tracks))).slice(0, count)
+  throw new Error('Playlist enthält keine abspielbaren Tracks.')
 }
 
 /* ── Playlist Access Check ──────────────────────────────────

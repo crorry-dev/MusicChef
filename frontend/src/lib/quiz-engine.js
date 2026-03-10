@@ -188,13 +188,14 @@ export function generateChoices(track, allTracks, guessFields) {
 export async function createQuiz({
   mode,
   genre,
+  genres,
   playlistId,
   count = 10,
   guessFields,
   yearRange = null,
   inputMode = 'freetext',
   speedBonus = false,
-  revealCover = false,
+  coverMode = 'none',
 }) {
   const fields =
     Array.isArray(guessFields) && guessFields.length > 0
@@ -210,6 +211,7 @@ export async function createQuiz({
     } catch (err) {
       const is403 = err.message.includes('403') || err.message.includes('Forbidden')
         || err.message.includes('verweigert') || err.message.includes('keine abspielbaren')
+        || err.message.includes('gehört') || err.message.includes('Development Mode')
       if (is403) {
         /* Playlist-API gesperrt (Spotify Dev Mode) → Stream-Modus via SDK */
         return {
@@ -222,7 +224,7 @@ export async function createQuiz({
           pointsPerField: Math.round(100 / fields.length),
           inputMode,
           speedBonus,
-          revealCover,
+          coverMode,
           streamMode: true,
           tracks: [],
           allChoices: null,
@@ -234,8 +236,53 @@ export async function createQuiz({
       }
       throw err
     }
+
+    /* Zu wenige Tracks aus der API? → Stream-Modus als Fallback.
+       Passiert wenn der Haupt-Endpoint in Dev Mode nur einen Teil
+       der Tracks liefert (z.B. 3 statt 50). */
+    if (tracks.length < Math.min(targetCount, 5)) {
+      console.log(
+        `[Quiz] Nur ${tracks.length} Tracks aus API – wechsle zu Stream-Modus für Playlist ${playlistId}`
+      )
+      return {
+        id: crypto.randomUUID(),
+        genre: null,
+        mode: 'playlist',
+        playlistId,
+        playlistUri: `spotify:playlist:${playlistId}`,
+        guessFields: fields,
+        pointsPerField: Math.round(100 / fields.length),
+        inputMode,
+        speedBonus,
+        coverMode,
+        streamMode: true,
+        tracks: [],
+        allChoices: null,
+        currentIndex: 0,
+        answers: [],
+        score: 0,
+        totalQuestions: targetCount,
+      }
+    }
   } else if (mode === 'random' || genre === 'random') {
     tracks = await fetchRandomTracks(targetCount * 3, yearRange)
+  } else if (mode === 'multi-genre' && Array.isArray(genres) && genres.length > 1) {
+    /* Mehrere Genres: pro Genre Tracks laden, mischen, deduplizieren */
+    const perGenre = Math.max(Math.ceil((targetCount * 3) / genres.length), 10)
+    const allFetched = await Promise.all(
+      genres.map((gId) => {
+        const info = GENRES[gId] ?? { search: gId }
+        return fetchTracksForGenre(info.search, perGenre, yearRange).catch(() => [])
+      }),
+    )
+    const seen = new Set()
+    const merged = []
+    for (const batch of allFetched) {
+      for (const t of batch) {
+        if (!seen.has(t.id)) { seen.add(t.id); merged.push(t) }
+      }
+    }
+    tracks = shuffleArray(merged)
   } else {
     const genreInfo = GENRES[genre] ?? { search: genre }
     tracks = await fetchTracksForGenre(genreInfo.search, targetCount * 3, yearRange)
@@ -289,7 +336,7 @@ export async function createQuiz({
     pointsPerField,
     inputMode,
     speedBonus,
-    revealCover,
+    coverMode,
     streamMode: false,
     trackCountWarning,
     tracks: selected,

@@ -110,18 +110,36 @@ export async function connectPlayer() {
 /* ── Track abspielen ───────────────────────────────────────── */
 export async function play(trackId) {
   if (!deviceId) throw new Error('Player nicht verbunden')
-  const token = await getValidToken()
 
-  const res = await fetch(
-    `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-    {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
-    },
-  )
+  /* Gerät zuerst aktivieren – wie bei playContext() */
+  const activated = await activateDevice()
+  if (!activated) {
+    throw new Error('Kein aktives Spotify-Gerät – bitte Seite neu laden')
+  }
+
+  const token = await getValidToken()
+  const doPlay = async () => {
+    const res = await fetch(
+      `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
+      },
+    )
+    return res
+  }
+
+  let res = await doPlay()
+
+  /* Retry bei 404 (Gerät noch nicht bereit) */
+  if (res.status === 404) {
+    await new Promise((r) => setTimeout(r, 2000))
+    res = await doPlay()
+  }
 
   if (res.status === 403) throw new Error('Spotify Premium erforderlich')
+  if (res.status === 404) throw new Error('Kein aktives Spotify-Gerät – bitte Seite neu laden')
   if (!res.ok && res.status !== 204) {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error?.message || `Wiedergabe fehlgeschlagen (${res.status})`)
@@ -165,19 +183,60 @@ export async function reconnect() {
   return connectPlayer()
 }
 
+/* ── Gerät aktivieren (Transfer Playback) ──────────────────── */
+async function activateDevice() {
+  if (!deviceId) return false
+  const token = await getValidToken()
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch('https://api.spotify.com/v1/me/player', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_ids: [deviceId], play: false }),
+    })
+    if (res.ok || res.status === 204) return true
+    if (res.status === 404) {
+      /* Gerät noch nicht bei Spotify registriert – warten */
+      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)))
+      continue
+    }
+    console.warn(`[Player] Geräte-Transfer fehlgeschlagen (${res.status})`)
+    return false
+  }
+  console.warn('[Player] Geräte-Transfer nach 3 Versuchen fehlgeschlagen')
+  return false
+}
+
 /* ── Playlist / Context abspielen ──────────────────────────── */
 export async function playContext(contextUri, shuffle = true) {
   if (!deviceId) throw new Error('Player nicht verbunden')
+
+  /* Gerät zuerst aktivieren – MUSS erfolgreich sein bevor API-Calls kommen */
+  const activated = await activateDevice()
+  if (!activated) {
+    throw new Error('Kein aktives Spotify-Gerät gefunden – bitte Seite neu laden')
+  }
+
   const token = await getValidToken()
 
   if (shuffle) {
-    await fetch(
-      `https://api.spotify.com/v1/me/player/shuffle?state=true&device_id=${deviceId}`,
-      { method: 'PUT', headers: { Authorization: `Bearer ${token}` } },
-    )
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const shuffleRes = await fetch(
+        `https://api.spotify.com/v1/me/player/shuffle?state=true&device_id=${deviceId}`,
+        { method: 'PUT', headers: { Authorization: `Bearer ${token}` } },
+      )
+      if (shuffleRes.ok || shuffleRes.status === 204) break
+      if (shuffleRes.status === 404 && attempt === 0) {
+        await new Promise((r) => setTimeout(r, 1500))
+        continue
+      }
+      console.warn(`[Player] Shuffle konnte nicht gesetzt werden (${shuffleRes.status})`)
+      break
+    }
   }
 
-  const res = await fetch(
+  /* Play mit Retry bei 404 */
+  let playRes = await fetch(
     `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
     {
       method: 'PUT',
@@ -186,10 +245,23 @@ export async function playContext(contextUri, shuffle = true) {
     },
   )
 
-  if (res.status === 403) throw new Error('Spotify Premium erforderlich')
-  if (!res.ok && res.status !== 204) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error?.message || `Playlist-Wiedergabe fehlgeschlagen (${res.status})`)
+  if (playRes.status === 404) {
+    await new Promise((r) => setTimeout(r, 2000))
+    playRes = await fetch(
+      `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context_uri: contextUri }),
+      },
+    )
+  }
+
+  if (playRes.status === 403) throw new Error('Spotify Premium erforderlich')
+  if (playRes.status === 404) throw new Error('Kein aktives Spotify-Gerät gefunden – bitte Seite neu laden')
+  if (!playRes.ok && playRes.status !== 204) {
+    const body = await playRes.json().catch(() => ({}))
+    throw new Error(body.error?.message || `Playlist-Wiedergabe fehlgeschlagen (${playRes.status})`)
   }
 }
 
